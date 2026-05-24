@@ -6,29 +6,29 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-// ---------- Limits ----------
-#define MAX_VARS         256   // max number of variables
-#define MAX_NAME         64    // max length of a variable name
-#define MAX_INSTRUCTIONS 1024  // max number of instructions
+// ---------- Initial capacities (will grow as needed) ----------
+#define INIT_VARS_CAPACITY    16
+#define INIT_INSTR_CAPACITY   64
+#define INIT_MACROS_CAPACITY   8
 
-#define MAX_MACROS        64
-#define MAX_MACRO_PARAMS   8
-#define MAX_MACRO_LINES   64
-#define MAX_MACRO_NAME    64
+#define MAX_NAME              64
+#define MAX_MACRO_PARAMS       8
+#define MAX_MACRO_LINES       64
+#define MAX_MACRO_NAME        64
 
 // ---------- Instruction types ----------
 typedef enum {
-    INST_INC,        // '+' (on current cell or named var)
-    INST_DEC,        // '-' (on current cell or named var)
-    INST_ZERO,       // '[-]' (on current cell or named var)
-    INST_INPUT,      // ','
-    INST_OUTPUT,     // '.'
-    INST_LOOP_START, // '['
-    INST_LOOP_END,   // ']'
-    INST_MOV,        // copy src to dst (destroys src)
-    INST_GOTO,       // move head to named var
-    INST_RIGHT,      // move head right by n cells
-    INST_LEFT,        // move head left by n cells
+    INST_INC,
+    INST_DEC,
+    INST_ZERO,
+    INST_INPUT,
+    INST_OUTPUT,
+    INST_LOOP_START,
+    INST_LOOP_END,
+    INST_MOV,
+    INST_GOTO,
+    INST_RIGHT,
+    INST_LEFT,
     INST_RAWBF
 } InstType;
 
@@ -36,41 +36,45 @@ typedef enum {
 
 // ---------- Single instruction ----------
 typedef struct {
-    InstType type;              // what to do
-    char var_name[MAX_NAME];    // variable name (for var-based operations)
-    int  operand;               // numeric operand (for RIGHT/LEFT/INC n/DEC n)
-    char src_var[MAX_NAME];     // source variable (for MOV)
-    char dst_var[MAX_NAME];     // destination variable (for MOV)
+    InstType type;
+    char var_name[MAX_NAME];
+    int  operand;
+    char src_var[MAX_NAME];
+    char dst_var[MAX_NAME];
     char raw_bf[RAWBF_MAX];
 } Instruction;
 
 // ---------- Macro definition ----------
 typedef struct {
     char name[MAX_MACRO_NAME];
-    char lib_alias[MAX_NAME];   // library alias (e.g., "stdlib"), empty if none
+    char lib_alias[MAX_NAME];
     char params[MAX_MACRO_PARAMS][MAX_NAME];
     int param_count;
-    char body[MAX_MACRO_LINES][256]; // macro body lines
+    char body[MAX_MACRO_LINES][256];
     int body_line_count;
 } Macro;
 
-// ---------- Variable table ----------
+// ---------- Variable table (dynamic) ----------
 typedef struct {
-    char names[MAX_VARS][MAX_NAME]; // variable names
-    int count;                      // number of declared variables
-    int org_offset;                 // base offset set by ORG (default 0)
+    char (*names)[MAX_NAME];   // pointer to array of strings
+    int count;
+    int capacity;
+    int org_offset;
 } VarTable;
 
 // ---------- Abstract Syntax Tree ----------
 typedef struct {
-    VarTable vars;                              // variable table
-    Instruction instructions[MAX_INSTRUCTIONS]; // parsed instructions
-    int inst_count;                             // number of instructions
-    Macro macros[MAX_MACROS];                   // defined macros
-    int macro_count;                            // number of macros
+    VarTable vars;
+    Instruction *instructions;  // dynamic array
+    int inst_count;
+    int inst_capacity;
+    Macro *macros;              // dynamic array
+    int macro_count;
+    int macro_capacity;
 } AST;
 
 // ---------- Parser function ----------
 AST parse_file(const char *filename);
+void ast_free(AST *ast);
 
 #endif

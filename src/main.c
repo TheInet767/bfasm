@@ -1,15 +1,3 @@
-// main.c
-// Brainfuck Assembler (bfasm) – entry point
-//
-// Usage: ./bfasm <file.bfasm>
-// Reads the .bfasm source, parses it into an AST, and prints the
-// resulting Brainfuck code to stdout.
-//
-// === Current Limitations & Future Improvements ===
-// [TODO]    Support -o flag to write output to a file.
-// [TODO]    Support -t flag to target different BF dialects (bf/bf++).
-// [TODO]    Better error reporting with source file and line number.
-
 #include <stdio.h>
 #include "parser.h"
 #include "codegen.h"
@@ -27,5 +15,6 @@ int main(int argc, char *argv[]) {
     }
 
     generate_bf(&ast);
+    ast_free(&ast);
     return 0;
 }

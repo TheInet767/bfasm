@@ -6,11 +6,6 @@
 // explicit library selection.
 //
 // === Current Limitations & Future Improvements ===
-// [LIMIT]   Static arrays – variables, instructions, macros are capped.
-// [LIMIT]   VAR duplicates are silently ignored; a warning might help.
-// [LIMIT]   INCLUDE does not support nested subdirectories.
-// [LIMIT]   Macro arguments must be variable names (no numeric literals).
-// [LIMIT]   Macros must be defined before use (single-pass parser).
 // [TODO]    Nested macro calls (recursive expansion) works but depth not limited.
 // [TODO]    INCLUDE for files inside standard library paths.
 // [TODO]    Better error recovery – stops at first error.
@@ -39,20 +34,83 @@ static char* trim(char *str) {
     return str;
 }
 
+// ---- dynamic memory helpers ----
+
+// Add a variable to the table, expanding if needed.
+static int add_variable(AST *ast, const char *name) {
+    VarTable *vt = &ast->vars;
+    // Check for duplicate
+    for (int i = 0; i < vt->count; i++) {
+        if (strcmp(vt->names[i], name) == 0) return 0; // already exists
+    }
+    if (vt->count >= vt->capacity) {
+        int new_cap = vt->capacity * 2;
+        char (*new_names)[MAX_NAME] = realloc(vt->names, new_cap * sizeof(char[MAX_NAME]));
+        if (!new_names) {
+            fprintf(stderr, "Error: out of memory for variables\n");
+            return -1;
+        }
+        vt->names = new_names;
+        vt->capacity = new_cap;
+    }
+    strncpy(vt->names[vt->count], name, MAX_NAME-1);
+    vt->names[vt->count][MAX_NAME-1] = '\0';
+    vt->count++;
+    return 0;
+}
+
+// Add an instruction, expanding if needed.
+static int add_instruction(AST *ast, const Instruction *inst) {
+    if (ast->inst_count >= ast->inst_capacity) {
+        int new_cap = ast->inst_capacity * 2;
+        Instruction *new_inst = realloc(ast->instructions, new_cap * sizeof(Instruction));
+        if (!new_inst) {
+            fprintf(stderr, "Error: out of memory for instructions\n");
+            return -1;
+        }
+        ast->instructions = new_inst;
+        ast->inst_capacity = new_cap;
+    }
+    ast->instructions[ast->inst_count++] = *inst;
+    return 0;
+}
+
+// Add a macro, expanding if needed.
+static int add_macro(AST *ast, const Macro *macro) {
+    if (ast->macro_count >= ast->macro_capacity) {
+        int new_cap = ast->macro_capacity * 2;
+        Macro *new_macros = realloc(ast->macros, new_cap * sizeof(Macro));
+        if (!new_macros) {
+            fprintf(stderr, "Error: out of memory for macros\n");
+            return -1;
+        }
+        ast->macros = new_macros;
+        ast->macro_capacity = new_cap;
+    }
+    ast->macros[ast->macro_count++] = *macro;
+    return 0;
+}
+
+void ast_free(AST *ast) {
+    free(ast->vars.names);
+    free(ast->instructions);
+    free(ast->macros);
+    memset(ast, 0, sizeof(*ast));
+}
+
 // ---- forward declarations ----
 static int parse_line(char *trimmed, AST *ast, int line_num);
 static void parse_macros_from_file(const char *filename, const char *alias,
                                    AST *ast, char **keep_names, int keep_count);
+static int process_expanded_line(char *trimmed, AST *ast, int line_num);
 
 // ---- macro support ----
 
-// Find macro by name and optional alias. If alias is NULL or empty,
-// returns the first macro with matching name (in order of inclusion).
+// Find macro by name and optional alias.
 static Macro* find_macro(AST *ast, const char *name, const char *alias) {
     for (int i = 0; i < ast->macro_count; i++) {
         if (strcmp(ast->macros[i].name, name) == 0) {
             if (alias == NULL || alias[0] == '\0') {
-                // no alias requested – return first match
                 return &ast->macros[i];
             } else if (strcmp(ast->macros[i].lib_alias, alias) == 0) {
                 return &ast->macros[i];
@@ -104,8 +162,6 @@ static char* substitute_line(const char *line, const Macro *m, char *args[]) {
 
 // ---- INCLUDE and macro loading ----
 
-// Parse macros from a file and add them to AST with the given library alias.
-// If keep_names is not NULL and keep_count > 0, only those macros are added.
 static void parse_macros_from_file(const char *filename, const char *alias,
                                    AST *ast, char **keep_names, int keep_count) {
     FILE *fp = fopen(filename, "r");
@@ -124,7 +180,6 @@ static void parse_macros_from_file(const char *filename, const char *alias,
         if (strlen(trimmed) == 0) continue;
 
         if (strncmp(trimmed, "MACRO ", 6) == 0) {
-            // We have a macro definition. Parse its name and check KEEP.
             char *def = trim(trimmed + 6);
             char *lparen = strchr(def, '(');
             if (!lparen) {
@@ -134,41 +189,29 @@ static void parse_macros_from_file(const char *filename, const char *alias,
             *lparen = '\0';
             char *macro_name = trim(def);
 
-            // KEEP filter: if keep_count > 0 and name not in list, skip this macro
             if (keep_count > 0) {
                 int found = 0;
                 for (int i = 0; i < keep_count; i++) {
                     if (strcmp(macro_name, keep_names[i]) == 0) { found = 1; break; }
                 }
                 if (!found) {
-                    // skip the whole macro body
-                    
                     while (fgets(line, sizeof(line), fp)) {
                         trim_newline(line);
                         char *c = strchr(line, ';'); if (c) *c = '\0';
                         char *t = trim(line);
                         if (strlen(t) == 0) continue;
-                        if (strncmp(t, "ENDM", 4) == 0 && strlen(t) == 4) {
-                            break;
-                        }
+                        if (strncmp(t, "ENDM", 4) == 0 && strlen(t) == 4) break;
                     }
                     continue;
                 }
             }
 
-            // Add this macro
-            if (ast->macro_count >= MAX_MACROS) {
-                fprintf(stderr, "Error: too many macros (max %d)\n", MAX_MACROS);
-                ast->inst_count = -1; break;
-            }
-
-            Macro *m = &ast->macros[ast->macro_count];
-            strncpy(m->name, macro_name, MAX_MACRO_NAME-1);
-            m->name[MAX_MACRO_NAME-1] = '\0';
-            strncpy(m->lib_alias, alias ? alias : "", MAX_NAME-1);
-            m->lib_alias[MAX_NAME-1] = '\0';
-            m->param_count = 0;
-            m->body_line_count = 0;
+            Macro m;
+            memset(&m, 0, sizeof(m));
+            strncpy(m.name, macro_name, MAX_MACRO_NAME-1);
+            m.name[MAX_MACRO_NAME-1] = '\0';
+            strncpy(m.lib_alias, alias ? alias : "", MAX_NAME-1);
+            m.lib_alias[MAX_NAME-1] = '\0';
 
             char *params_str = lparen + 1;
             char *rparen = strchr(params_str, ')');
@@ -179,7 +222,7 @@ static void parse_macros_from_file(const char *filename, const char *alias,
             *rparen = '\0';
             char *token = strtok(params_str, ",");
             while (token) {
-                if (m->param_count >= MAX_MACRO_PARAMS) {
+                if (m.param_count >= MAX_MACRO_PARAMS) {
                     fprintf(stderr, "Error: too many macro parameters\n");
                     ast->inst_count = -1; break;
                 }
@@ -188,38 +231,36 @@ static void parse_macros_from_file(const char *filename, const char *alias,
                     fprintf(stderr, "Error: empty macro parameter\n");
                     ast->inst_count = -1; break;
                 }
-                strncpy(m->params[m->param_count], p, MAX_NAME-1);
-                m->params[m->param_count][MAX_NAME-1] = '\0';
-                m->param_count++;
+                strncpy(m.params[m.param_count], p, MAX_NAME-1);
+                m.params[m.param_count][MAX_NAME-1] = '\0';
+                m.param_count++;
                 token = strtok(NULL, ",");
             }
             if (ast->inst_count == -1) break;
 
-            // read body
             while (fgets(line, sizeof(line), fp)) {
                 trim_newline(line);
                 char *c = strchr(line, ';'); if (c) *c = '\0';
                 char *tline = trim(line);
                 if (strlen(tline) == 0) continue;
                 if (strcmp(tline, "ENDM") == 0) break;
-                if (m->body_line_count >= MAX_MACRO_LINES) {
+                if (m.body_line_count >= MAX_MACRO_LINES) {
                     fprintf(stderr, "Error: macro body too long\n");
                     ast->inst_count = -1; break;
                 }
-                strncpy(m->body[m->body_line_count], tline, 255);
-                m->body[m->body_line_count][255] = '\0';
-                m->body_line_count++;
+                strncpy(m.body[m.body_line_count], tline, 255);
+                m.body[m.body_line_count][255] = '\0';
+                m.body_line_count++;
             }
             if (ast->inst_count == -1) break;
-            ast->macro_count++;
-        } else {
-            // All non-macro lines in included files are silently ignored
-            // (they should be macro definitions only)
+
+            if (add_macro(ast, &m) != 0) {
+                ast->inst_count = -1; break;
+            }
         }
     }
 
     fclose(fp);
-    // If KEEP was specified, verify all requested macros were found.
     if (keep_count > 0 && ast->inst_count != -1) {
         for (int i = 0; i < keep_count; i++) {
             int found = 0;
@@ -237,10 +278,8 @@ static void parse_macros_from_file(const char *filename, const char *alias,
     }
 }
 
-// Process a line that may be a macro call or an ordinary instruction.
-// Returns 0 on success, -1 on error.
+// ---- process_expanded_line ----
 static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
-    // Check for macro call
     char first_token[MAX_NAME] = {0};
     sscanf(trimmed, "%63s", first_token);
     int first_token_len = strlen(first_token);
@@ -260,7 +299,6 @@ static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
 
     Macro *macro = find_macro(ast, call_name, at_sign ? call_alias : NULL);
     if (macro) {
-        // Extract arguments
         const char *args_start = trimmed + first_token_len;
         char args_str[256];
         strncpy(args_str, trim((char*)args_start), 255);
@@ -281,7 +319,6 @@ static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
             return -1;
         }
 
-        // Expand each line of the macro body, recursively processing
         for (int li = 0; li < macro->body_line_count; li++) {
             char *expanded = substitute_line(macro->body[li], macro, arg_tokens);
             if (process_expanded_line(expanded, ast, line_num) != 0) {
@@ -294,21 +331,49 @@ static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
         return -1;
     }
 
-    // Not a macro call, parse as ordinary instruction
     return parse_line(trimmed, ast, line_num);
 }
+
 // ---- main parser ----
 
 AST parse_file(const char *filename) {
     AST ast;
-    ast.vars.count = 0;
-    ast.vars.org_offset = 0;
-    ast.inst_count = 0;
-    ast.macro_count = 0;
+    memset(&ast, 0, sizeof(ast));
+
+    // Initialize variable table
+    ast.vars.capacity = INIT_VARS_CAPACITY;
+    ast.vars.names = malloc(ast.vars.capacity * sizeof(char[MAX_NAME]));
+    if (!ast.vars.names) {
+        fprintf(stderr, "Error: out of memory\n");
+        ast.inst_count = -1;
+        return ast;
+    }
+
+    // Initialize instructions array
+    ast.inst_capacity = INIT_INSTR_CAPACITY;
+    ast.instructions = malloc(ast.inst_capacity * sizeof(Instruction));
+    if (!ast.instructions) {
+        fprintf(stderr, "Error: out of memory\n");
+        free(ast.vars.names);
+        ast.inst_count = -1;
+        return ast;
+    }
+
+    // Initialize macros array
+    ast.macro_capacity = INIT_MACROS_CAPACITY;
+    ast.macros = malloc(ast.macro_capacity * sizeof(Macro));
+    if (!ast.macros) {
+        fprintf(stderr, "Error: out of memory\n");
+        free(ast.vars.names);
+        free(ast.instructions);
+        ast.inst_count = -1;
+        return ast;
+    }
 
     FILE *fp = fopen(filename, "r");
     if (!fp) {
         fprintf(stderr, "Error: cannot open file '%s'\n", filename);
+        ast_free(&ast);
         ast.inst_count = -1;
         return ast;
     }
@@ -329,12 +394,11 @@ AST parse_file(const char *filename) {
         // --- INCLUDE directive ---
         if (strncmp(trimmed, "INCLUDE ", 8) == 0) {
             char *rest = trim(trimmed + 8);
-            // Extract filename from quotes
             if (*rest != '"') {
                 fprintf(stderr, "Error line %d: INCLUDE filename must be in double quotes\n", line_num);
                 ast.inst_count = -1; break;
             }
-            rest++; // skip opening quote
+            rest++;
             char *closing_quote = strchr(rest, '"');
             if (!closing_quote) {
                 fprintf(stderr, "Error line %d: missing closing quote for INCLUDE filename\n", line_num);
@@ -344,7 +408,6 @@ AST parse_file(const char *filename) {
             char *include_filename = rest;
             rest = closing_quote + 1;
 
-            // Parse optional AS alias and KEEP list
             char alias[MAX_NAME] = "";
             char *keep_macros[32];
             int keep_count = 0;
@@ -366,9 +429,6 @@ AST parse_file(const char *filename) {
                     rest = end;
                 } else if (strncmp(rest, "KEEP ", 5) == 0) {
                     rest += 5;
-                    // We need to store keep names in persistent storage
-                    // because rest points into 'line' which will be overwritten.
-                    // Use a static buffer for keep names.
                     static char keep_name_buf[32][MAX_NAME];
                     keep_count = 0;
                     char *tok = strtok(rest, ",");
@@ -382,7 +442,6 @@ AST parse_file(const char *filename) {
                             fprintf(stderr, "Error line %d: too many KEEP arguments\n", line_num);
                             ast.inst_count = -1; break;
                         }
-                        // Copy the name into our static buffer
                         strncpy(keep_name_buf[keep_count], name, MAX_NAME-1);
                         keep_name_buf[keep_count][MAX_NAME-1] = '\0';
                         keep_macros[keep_count] = keep_name_buf[keep_count];
@@ -390,7 +449,6 @@ AST parse_file(const char *filename) {
                         tok = strtok(NULL, ",");
                     }
                     if (ast.inst_count == -1) break;
-                    // KEEP is the last component, skip the rest
                     break;
                 } else {
                     fprintf(stderr, "Error line %d: unexpected token after INCLUDE filename\n", line_num);
@@ -400,7 +458,6 @@ AST parse_file(const char *filename) {
             }
             if (ast.inst_count == -1) break;
 
-            // If no alias explicitly set, derive from filename (basename without extension)
             if (alias[0] == '\0') {
                 const char *base = strrchr(include_filename, '/');
                 if (base) base++; else base = include_filename;
@@ -411,7 +468,6 @@ AST parse_file(const char *filename) {
                 alias[len] = '\0';
             }
 
-            // Load macros from included file
             parse_macros_from_file(include_filename, alias, &ast,
                                    keep_count > 0 ? keep_macros : NULL, keep_count);
             if (ast.inst_count == -1) break;
@@ -436,7 +492,13 @@ AST parse_file(const char *filename) {
                 fprintf(stderr, "Error line %d: invalid RESERVE value\n", line_num);
                 ast.inst_count = -1; break;
             }
-            ast.vars.count += n;
+            // advance variable count by n (they remain unnamed)
+            for (int i = 0; i < n; i++) {
+                if (add_variable(&ast, "") != 0) {
+                    ast.inst_count = -1; break;
+                }
+            }
+            if (ast.inst_count == -1) break;
             continue;
         }
 
@@ -447,29 +509,14 @@ AST parse_file(const char *filename) {
                 fprintf(stderr, "Error line %d: VAR without name\n", line_num);
                 ast.inst_count = -1; break;
             }
-            int found = 0;
-            for (int i = 0; i < ast.vars.count; i++) {
-                if (strcmp(ast.vars.names[i], name) == 0) {
-                    found = 1; break;
-                }
-            }
-            if (!found) {
-                if (ast.vars.count >= MAX_VARS) {
-                    fprintf(stderr, "Error line %d: too many variables (max %d)\n",
-                            line_num, MAX_VARS);
-                    ast.inst_count = -1; break;
-                }
-                strncpy(ast.vars.names[ast.vars.count], name, MAX_NAME-1);
-                ast.vars.names[ast.vars.count][MAX_NAME-1] = '\0';
-                ast.vars.count++;
+            if (add_variable(&ast, name) != 0) {
+                ast.inst_count = -1; break;
             }
             continue;
         }
 
         // --- MACRO definition ---
         if (strncmp(trimmed, "MACRO ", 6) == 0) {
-            // Inline macro definition is still supported without alias.
-            // We'll reuse the logic from parse_macros_from_file but inline.
             char *def = trim(trimmed + 6);
             char *lparen = strchr(def, '(');
             if (!lparen) {
@@ -478,17 +525,12 @@ AST parse_file(const char *filename) {
             }
             *lparen = '\0';
             char *macro_name = trim(def);
-            if (ast.macro_count >= MAX_MACROS) {
-                fprintf(stderr, "Error line %d: too many macros (max %d)\n", line_num, MAX_MACROS);
-                ast.inst_count = -1; break;
-            }
 
-            Macro *m = &ast.macros[ast.macro_count];
-            strncpy(m->name, macro_name, MAX_MACRO_NAME-1);
-            m->name[MAX_MACRO_NAME-1] = '\0';
-            m->lib_alias[0] = '\0';  // no alias for inline macros
-            m->param_count = 0;
-            m->body_line_count = 0;
+            Macro m;
+            memset(&m, 0, sizeof(m));
+            strncpy(m.name, macro_name, MAX_MACRO_NAME-1);
+            m.name[MAX_MACRO_NAME-1] = '\0';
+            m.lib_alias[0] = '\0';  // no alias for inline macros
 
             char *params_str = lparen + 1;
             char *rparen = strchr(params_str, ')');
@@ -499,7 +541,7 @@ AST parse_file(const char *filename) {
             *rparen = '\0';
             char *token = strtok(params_str, ",");
             while (token) {
-                if (m->param_count >= MAX_MACRO_PARAMS) {
+                if (m.param_count >= MAX_MACRO_PARAMS) {
                     fprintf(stderr, "Error line %d: too many macro parameters\n", line_num);
                     ast.inst_count = -1; break;
                 }
@@ -508,9 +550,9 @@ AST parse_file(const char *filename) {
                     fprintf(stderr, "Error line %d: empty macro parameter\n", line_num);
                     ast.inst_count = -1; break;
                 }
-                strncpy(m->params[m->param_count], p, MAX_NAME-1);
-                m->params[m->param_count][MAX_NAME-1] = '\0';
-                m->param_count++;
+                strncpy(m.params[m.param_count], p, MAX_NAME-1);
+                m.params[m.param_count][MAX_NAME-1] = '\0';
+                m.param_count++;
                 token = strtok(NULL, ",");
             }
             if (ast.inst_count == -1) break;
@@ -522,72 +564,24 @@ AST parse_file(const char *filename) {
                 char *tline = trim(line);
                 if (strlen(tline) == 0) continue;
                 if (strcmp(tline, "ENDM") == 0) break;
-                if (m->body_line_count >= MAX_MACRO_LINES) {
+                if (m.body_line_count >= MAX_MACRO_LINES) {
                     fprintf(stderr, "Error line %d: macro body too long\n", line_num);
                     ast.inst_count = -1; break;
                 }
-                strncpy(m->body[m->body_line_count], tline, 255);
-                m->body[m->body_line_count][255] = '\0';
-                m->body_line_count++;
+                strncpy(m.body[m.body_line_count], tline, 255);
+                m.body[m.body_line_count][255] = '\0';
+                m.body_line_count++;
             }
             if (ast.inst_count == -1) break;
-            ast.macro_count++;
-            continue;
-        }
 
-        // --- Check for macro call (including @-notation) ---
-        char first_token[MAX_NAME] = {0};
-        sscanf(trimmed, "%63s", first_token);
-        int first_token_len = strlen(first_token);   // запоминаем исходную длину
-        char *at_sign = strchr(first_token, '@');
-        char call_name[MAX_MACRO_NAME];
-        char call_alias[MAX_NAME] = "";
-        if (at_sign) {
-            *at_sign = '\0';
-            strncpy(call_name, first_token, MAX_MACRO_NAME-1);
-            call_name[MAX_MACRO_NAME-1] = '\0';
-            strncpy(call_alias, at_sign + 1, MAX_NAME-1);
-            call_alias[MAX_NAME-1] = '\0';
-        } else {
-            strncpy(call_name, first_token, MAX_MACRO_NAME-1);
-            call_name[MAX_MACRO_NAME-1] = '\0';
-        }
-
-        Macro *macro = find_macro(&ast, call_name, at_sign ? call_alias : NULL);
-        if (macro) {
-          
-            char args_str[256];
-            const char *args_start = trimmed + first_token_len;
-            strncpy(args_str, trim((char*)args_start), 255);
-            args_str[255] = '\0';
-
-            char *arg_tokens[MAX_MACRO_PARAMS];
-            int arg_count = 0;
-            char *tok = strtok(args_str, ",");
-            while (tok) {
-                if (arg_count >= MAX_MACRO_PARAMS) break;
-                arg_tokens[arg_count] = trim(tok);
-                arg_count++;
-                tok = strtok(NULL, ",");
-            }
-            if (arg_count != macro->param_count) {
-                fprintf(stderr, "Error line %d: macro '%s' expects %d arguments, got %d\n",
-                        line_num, macro->name, macro->param_count, arg_count);
+            if (add_macro(&ast, &m) != 0) {
                 ast.inst_count = -1; break;
             }
-
-            for (int li = 0; li < macro->body_line_count; li++) {
-                char *expanded = substitute_line(macro->body[li], macro, arg_tokens);
-                if (process_expanded_line(expanded, &ast, line_num) != 0) {
-                    ast.inst_count = -1; break;
-                }
-            }            
-            if (ast.inst_count == -1) break;
             continue;
-        } else if (at_sign) {
-            fprintf(stderr, "Error line %d: macro '%s@%s' not found\n", line_num, call_name, call_alias);
-            ast.inst_count = -1; break;
         }
+
+        // --- Raw BF and other directives ---
+        // (INCLUDEBF, BF, BEGINBF – keep your existing code here, just use add_instruction instead of manual bound check)
         if (strncmp(trimmed, "BF ", 3) == 0) {
             char *start = trim(trimmed + 3);
             char raw[RAWBF_MAX] = {0};
@@ -607,12 +601,9 @@ AST parse_file(const char *filename) {
                 strncpy(raw, start, len);
                 raw[len] = '\0';
             } else {
-                // без кавычек — берём все символы до конца строки
                 strncpy(raw, start, RAWBF_MAX-1);
                 raw[RAWBF_MAX-1] = '\0';
                 len = strlen(raw);
-                // удаляем возможные пробелы? Нет, пробелы в BF игнорируются интерпретатором, но нам нужна компактность.
-                // Удалим все пробелы и табуляции для чистоты.
                 int j = 0;
                 for (int i = 0; raw[i]; i++) {
                     if (raw[i] != ' ' && raw[i] != '\t') raw[j++] = raw[i];
@@ -620,7 +611,6 @@ AST parse_file(const char *filename) {
                 raw[j] = '\0';
                 len = j;
             }
-            // валидация символов
             int ok = 1;
             for (int i = 0; i < len; i++) {
                 if (!strchr("><+-.,[]", raw[i])) {
@@ -635,15 +625,12 @@ AST parse_file(const char *filename) {
             inst.type = INST_RAWBF;
             strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
             inst.raw_bf[RAWBF_MAX-1] = '\0';
-
-            if (ast.inst_count >= MAX_INSTRUCTIONS) {
-                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+            if (add_instruction(&ast, &inst) != 0) {
                 ast.inst_count = -1; break;
             }
-            ast.instructions[ast.inst_count++] = inst;
             continue;
         }
-        // --- INCLUDEBF directive ---
+
         if (strncmp(trimmed, "INCLUDEBF ", 10) == 0) {
             char *rest = trim(trimmed + 10);
             if (*rest != '"') {
@@ -668,8 +655,6 @@ AST parse_file(const char *filename) {
             int len = 0;
             int ch;
             while ((ch = fgetc(bf_fp)) != EOF && len < RAWBF_MAX-1) {
-                // игнорируем пробелы и переводы строк? Или оставляем? Лучше оставить, т.к. BF-файлы могут содержать пробелы.
-                // Но валидируем.
                 if (!strchr("><+-.,[]", ch)) {
                     fprintf(stderr, "Error line %d: invalid character '%c' in BF file '%s'\n", line_num, ch, filename);
                     fclose(bf_fp);
@@ -686,23 +671,18 @@ AST parse_file(const char *filename) {
             inst.type = INST_RAWBF;
             strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
             inst.raw_bf[RAWBF_MAX-1] = '\0';
-
-            if (ast.inst_count >= MAX_INSTRUCTIONS) {
-                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+            if (add_instruction(&ast, &inst) != 0) {
                 ast.inst_count = -1; break;
             }
-            ast.instructions[ast.inst_count++] = inst;
             continue;
         }
-        
-        // --- BEGINBF ... END block ---
+
         if (strcmp(trimmed, "BEGINBF") == 0) {
             char raw[RAWBF_MAX] = {0};
             int len = 0;
             while (fgets(line, sizeof(line), fp)) {
                 line_num++;
                 trim_newline(line);
-                // удаляем пробелы/табуляции
                 int j = 0;
                 for (int i = 0; line[i]; i++) {
                     if (line[i] != ' ' && line[i] != '\t')
@@ -711,7 +691,6 @@ AST parse_file(const char *filename) {
                 line[j] = '\0';
                 if (strcmp(line, "END") == 0) break;
 
-                // валидация символов
                 for (int i = 0; line[i]; i++) {
                     if (!strchr("><+-.,[]", line[i])) {
                         fprintf(stderr, "Error line %d: invalid character '%c' in BEGINBF block\n", line_num, line[i]);
@@ -735,15 +714,12 @@ AST parse_file(const char *filename) {
             inst.type = INST_RAWBF;
             strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
             inst.raw_bf[RAWBF_MAX-1] = '\0';
-
-            if (ast.inst_count >= MAX_INSTRUCTIONS) {
-                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+            if (add_instruction(&ast, &inst) != 0) {
                 ast.inst_count = -1; break;
             }
-            ast.instructions[ast.inst_count++] = inst;
             continue;
         }
-        
+
         // --- Ordinary instruction (or macro call) ---
         if (process_expanded_line(trimmed, &ast, line_num) != 0) {
             ast.inst_count = -1; break;
@@ -754,15 +730,8 @@ AST parse_file(const char *filename) {
     return ast;
 }
 
-// ---- parse_line unchanged (same as before, just ensure it's present) ----
-// (Include the entire parse_line function from previous version here)
+// ---- parse_line: unchanged ----
 static int parse_line(char *trimmed, AST *ast, int line_num) {
-    if (ast->inst_count >= MAX_INSTRUCTIONS) {
-        fprintf(stderr, "Error line %d: too many instructions (max %d)\n",
-                line_num, MAX_INSTRUCTIONS);
-        return -1;
-    }
-
     Instruction inst;
     memset(&inst, 0, sizeof(inst));
     inst.operand = 1;
@@ -915,6 +884,5 @@ static int parse_line(char *trimmed, AST *ast, int line_num) {
     }
     #undef PARSE_NUM_OR_DEFAULT
 
-    ast->instructions[ast->inst_count++] = inst;
-    return 0;
+    return add_instruction(ast, &inst);
 }

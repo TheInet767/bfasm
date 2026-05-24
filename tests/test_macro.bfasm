@@ -1,0 +1,24 @@
+; macro that adds src to dst, preserving src (requires a temporary cell)
+MACRO ADD(dst, src, tmp)
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src      ; return head to src for loop check
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp      ; return head to tmp for loop check
+    END
+ENDM
+
+VAR a
+VAR b
+VAR t
+INPUT
+GOTO b
+INPUT
+ADD a, b, t
+GOTO a
+OUTPUT

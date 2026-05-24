@@ -43,6 +43,10 @@ void generate_bf(const AST *ast) {
         Instruction inst = ast->instructions[i];
 
         switch (inst.type) {
+            case INST_RAWBF:
+                printf("%s", inst.raw_bf);
+                head_pos = 0;   // сбрасываем позицию головки
+                break;
             case INST_INC:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);

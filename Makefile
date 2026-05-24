@@ -32,3 +32,7 @@ test: $(OUT) $(BFRUN)
 	@echo "=== Test 6: SUB and MOV_SAFE (10-3=7) ==="
 	@./$(OUT) tests/test_sub_safe.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
 	@rm -f /tmp/_bf.bf
+	@echo "=== Test raw BF ==="
+	@./$(OUT) tests/test_rawbf.bfasm > /tmp/_raw.bf && $(BFRUN) /tmp/_raw.bf | xxd
+	@echo "=== Test begin BF ==="
+	@./$(OUT) tests/test_beginbf.bfasm > /tmp/_raw.bf && $(BFRUN) /tmp/_raw.bf | xxd

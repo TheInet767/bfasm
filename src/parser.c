@@ -530,7 +530,162 @@ AST parse_file(const char *filename) {
             fprintf(stderr, "Error line %d: macro '%s@%s' not found\n", line_num, call_name, call_alias);
             ast.inst_count = -1; break;
         }
+        if (strncmp(trimmed, "BF ", 3) == 0) {
+            char *start = trim(trimmed + 3);
+            char raw[RAWBF_MAX] = {0};
+            int len = 0;
+            if (*start == '"') {
+                start++;
+                char *end = strchr(start, '"');
+                if (!end) {
+                    fprintf(stderr, "Error line %d: missing closing quote for BF\n", line_num);
+                    ast.inst_count = -1; break;
+                }
+                len = end - start;
+                if (len >= RAWBF_MAX) {
+                    fprintf(stderr, "Error line %d: raw BF string too long\n", line_num);
+                    ast.inst_count = -1; break;
+                }
+                strncpy(raw, start, len);
+                raw[len] = '\0';
+            } else {
+                // без кавычек — берём все символы до конца строки
+                strncpy(raw, start, RAWBF_MAX-1);
+                raw[RAWBF_MAX-1] = '\0';
+                len = strlen(raw);
+                // удаляем возможные пробелы? Нет, пробелы в BF игнорируются интерпретатором, но нам нужна компактность.
+                // Удалим все пробелы и табуляции для чистоты.
+                int j = 0;
+                for (int i = 0; raw[i]; i++) {
+                    if (raw[i] != ' ' && raw[i] != '\t') raw[j++] = raw[i];
+                }
+                raw[j] = '\0';
+                len = j;
+            }
+            // валидация символов
+            int ok = 1;
+            for (int i = 0; i < len; i++) {
+                if (!strchr("><+-.,[]", raw[i])) {
+                    fprintf(stderr, "Error line %d: invalid character '%c' in raw BF\n", line_num, raw[i]);
+                    ok = 0; break;
+                }
+            }
+            if (!ok) { ast.inst_count = -1; break; }
 
+            Instruction inst;
+            memset(&inst, 0, sizeof(inst));
+            inst.type = INST_RAWBF;
+            strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
+            inst.raw_bf[RAWBF_MAX-1] = '\0';
+
+            if (ast.inst_count >= MAX_INSTRUCTIONS) {
+                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+                ast.inst_count = -1; break;
+            }
+            ast.instructions[ast.inst_count++] = inst;
+            continue;
+        }
+        // --- INCLUDEBF directive ---
+        if (strncmp(trimmed, "INCLUDEBF ", 10) == 0) {
+            char *rest = trim(trimmed + 10);
+            if (*rest != '"') {
+                fprintf(stderr, "Error line %d: INCLUDEBF filename must be in double quotes\n", line_num);
+                ast.inst_count = -1; break;
+            }
+            rest++;
+            char *closing = strchr(rest, '"');
+            if (!closing) {
+                fprintf(stderr, "Error line %d: missing closing quote for INCLUDEBF filename\n", line_num);
+                ast.inst_count = -1; break;
+            }
+            *closing = '\0';
+            char *filename = rest;
+
+            FILE *bf_fp = fopen(filename, "r");
+            if (!bf_fp) {
+                fprintf(stderr, "Error line %d: cannot open BF file '%s'\n", line_num, filename);
+                ast.inst_count = -1; break;
+            }
+            char raw[RAWBF_MAX] = {0};
+            int len = 0;
+            int ch;
+            while ((ch = fgetc(bf_fp)) != EOF && len < RAWBF_MAX-1) {
+                // игнорируем пробелы и переводы строк? Или оставляем? Лучше оставить, т.к. BF-файлы могут содержать пробелы.
+                // Но валидируем.
+                if (!strchr("><+-.,[]", ch)) {
+                    fprintf(stderr, "Error line %d: invalid character '%c' in BF file '%s'\n", line_num, ch, filename);
+                    fclose(bf_fp);
+                    ast.inst_count = -1; break;
+                }
+                raw[len++] = (char)ch;
+            }
+            fclose(bf_fp);
+            if (ast.inst_count == -1) break;
+            raw[len] = '\0';
+
+            Instruction inst;
+            memset(&inst, 0, sizeof(inst));
+            inst.type = INST_RAWBF;
+            strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
+            inst.raw_bf[RAWBF_MAX-1] = '\0';
+
+            if (ast.inst_count >= MAX_INSTRUCTIONS) {
+                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+                ast.inst_count = -1; break;
+            }
+            ast.instructions[ast.inst_count++] = inst;
+            continue;
+        }
+        
+        // --- BEGINBF ... END block ---
+        if (strcmp(trimmed, "BEGINBF") == 0) {
+            char raw[RAWBF_MAX] = {0};
+            int len = 0;
+            while (fgets(line, sizeof(line), fp)) {
+                line_num++;
+                trim_newline(line);
+                // удаляем пробелы/табуляции
+                int j = 0;
+                for (int i = 0; line[i]; i++) {
+                    if (line[i] != ' ' && line[i] != '\t')
+                        line[j++] = line[i];
+                }
+                line[j] = '\0';
+                if (strcmp(line, "END") == 0) break;
+
+                // валидация символов
+                for (int i = 0; line[i]; i++) {
+                    if (!strchr("><+-.,[]", line[i])) {
+                        fprintf(stderr, "Error line %d: invalid character '%c' in BEGINBF block\n", line_num, line[i]);
+                        ast.inst_count = -1; break;
+                    }
+                }
+                if (ast.inst_count == -1) break;
+
+                int add_len = strlen(line);
+                if (len + add_len >= RAWBF_MAX) {
+                    fprintf(stderr, "Error line %d: raw BF block too long\n", line_num);
+                    ast.inst_count = -1; break;
+                }
+                strncpy(raw + len, line, add_len);
+                len += add_len;
+            }
+            if (ast.inst_count == -1) break;
+
+            Instruction inst;
+            memset(&inst, 0, sizeof(inst));
+            inst.type = INST_RAWBF;
+            strncpy(inst.raw_bf, raw, RAWBF_MAX-1);
+            inst.raw_bf[RAWBF_MAX-1] = '\0';
+
+            if (ast.inst_count >= MAX_INSTRUCTIONS) {
+                fprintf(stderr, "Error line %d: too many instructions\n", line_num);
+                ast.inst_count = -1; break;
+            }
+            ast.instructions[ast.inst_count++] = inst;
+            continue;
+        }
+        
         // --- Ordinary instruction ---
         if (parse_line(trimmed, &ast, line_num) != 0) {
             ast.inst_count = -1; break;

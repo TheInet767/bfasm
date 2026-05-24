@@ -1,0 +1,11 @@
+VAR a
+VAR result
+BEGINBF
++++
+[
+    >++
+    <-
+]
+END
+GOTO result
+OUTPUT

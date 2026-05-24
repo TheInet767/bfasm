@@ -28,8 +28,11 @@ typedef enum {
     INST_MOV,        // copy src to dst (destroys src)
     INST_GOTO,       // move head to named var
     INST_RIGHT,      // move head right by n cells
-    INST_LEFT        // move head left by n cells
+    INST_LEFT,        // move head left by n cells
+    INST_RAWBF
 } InstType;
+
+#define RAWBF_MAX 1024
 
 // ---------- Single instruction ----------
 typedef struct {
@@ -38,6 +41,7 @@ typedef struct {
     int  operand;               // numeric operand (for RIGHT/LEFT/INC n/DEC n)
     char src_var[MAX_NAME];     // source variable (for MOV)
     char dst_var[MAX_NAME];     // destination variable (for MOV)
+    char raw_bf[RAWBF_MAX];
 } Instruction;
 
 // ---------- Macro definition ----------

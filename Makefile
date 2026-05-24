@@ -18,11 +18,17 @@ clean:
 
 test: $(OUT) $(BFRUN)
 	@echo "=== Test 1: Hello (H) ==="
-	@./$(OUT) tests/test_hello.bfasm > /tmp/_bfasm_test.bf && $(BFRUN) /tmp/_bfasm_test.bf
+	@./$(OUT) tests/test_hello.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf
 	@echo
 	@echo "=== Test 2: Increment input (A -> B) ==="
-	@./$(OUT) tests/test_inc_input.bfasm > /tmp/_bfasm_test.bf && echo -n 'A' | $(BFRUN) /tmp/_bfasm_test.bf
+	@./$(OUT) tests/test_inc_input.bfasm > /tmp/_bf.bf && echo -n 'A' | $(BFRUN) /tmp/_bf.bf
 	@echo
-	@echo "=== Test 3: Double input (should print byte 0x82) ==="
-	@./$(OUT) tests/test_double.bfasm > /tmp/_bfasm_test.bf && echo -n 'A' | $(BFRUN) /tmp/_bfasm_test.bf | xxd
-	@rm -f /tmp/_bfasm_test.bf
+	@echo "=== Test 3: Double input (byte 0x82) ==="
+	@./$(OUT) tests/test_double.bfasm > /tmp/_bf.bf && echo -n 'A' | $(BFRUN) /tmp/_bf.bf | xxd
+	@echo "=== Test 4: Macro ADD from include (A+B=0x83) ==="
+	@./$(OUT) tests/test_include.bfasm > /tmp/_bf.bf && echo -n 'AB' | $(BFRUN) /tmp/_bf.bf | xxd
+	@echo "=== Test 5: AS and @ (3*2=6) ==="
+	@./$(OUT) tests/test_as_kep.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+	@echo "=== Test 6: SUB and MOV_SAFE (10-3=7) ==="
+	@./$(OUT) tests/test_sub_safe.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+	@rm -f /tmp/_bf.bf

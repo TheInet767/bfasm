@@ -1,0 +1,11 @@
+INCLUDE "lib/stdlib.bfasm"
+
+VAR a
+VAR b
+VAR t
+INC a 10
+INC b 3
+SUB a, b, t      ; a = 7
+MOV_SAFE a, b, t ; b = 7, a не портится
+GOTO b
+OUTPUT

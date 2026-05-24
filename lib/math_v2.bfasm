@@ -1,0 +1,14 @@
+; Version 2 of MUL (preserves src, requires tmp)
+MACRO MUL(dst, src, tmp)
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM

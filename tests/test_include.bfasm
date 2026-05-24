@@ -1,0 +1,13 @@
+; test_include.bfasm – test INCLUDE from lib/ and macro call
+
+INCLUDE "lib/stdlib.bfasm"
+
+VAR a
+VAR b
+VAR t
+INPUT
+GOTO b
+INPUT
+ADD a, b, t
+GOTO a
+OUTPUT

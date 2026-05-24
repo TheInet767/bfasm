@@ -1,0 +1,7 @@
+; Version 1 of MUL (destructive, without tmp)
+MACRO MUL(dst, src, tmp)
+    LOOP src
+        DEC src
+        INC dst
+    END
+ENDM

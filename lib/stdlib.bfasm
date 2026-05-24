@@ -1,0 +1,47 @@
+; lib/stdlib.bfasm – Standard macro library for BFASM
+
+; --- ADD: dst += src, src preserved (needs a temporary cell) ---
+MACRO ADD(dst, src, tmp)
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM
+
+; --- SUB: dst -= src, src preserved ---
+MACRO SUB(dst, src, tmp)
+    LOOP src
+        DEC src
+        DEC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM
+
+; --- MOV_SAFE: copy src to dst without destroying src (needs tmp) ---
+MACRO MOV_SAFE(src, dst, tmp)
+    ZERO dst
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM

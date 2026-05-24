@@ -1,6 +1,7 @@
 // parser.h
 // Brainfuck Assembler (bfasm) – parser module header
 // Converts .bfasm source into an abstract syntax tree (AST)
+// Supports macros, INCLUDE with AS/KEEP, and @ alias for macro calls.
 
 #ifndef PARSER_H
 #define PARSER_H
@@ -42,6 +43,7 @@ typedef struct {
 // ---------- Macro definition ----------
 typedef struct {
     char name[MAX_MACRO_NAME];
+    char lib_alias[MAX_NAME];   // library alias (e.g., "stdlib"), empty if none
     char params[MAX_MACRO_PARAMS][MAX_NAME];
     int param_count;
     char body[MAX_MACRO_LINES][256]; // macro body lines

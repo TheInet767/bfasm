@@ -1,0 +1,11 @@
+INCLUDE "lib/math_v1.bfasm" AS v1 KEEP MUL
+INCLUDE "lib/math_v2.bfasm" AS v2 KEEP MUL
+
+VAR a
+VAR b
+VAR t
+INC a 3
+INC b 2
+MUL@v2 a, b, t   ; a = a * b с сохранением b
+GOTO a
+OUTPUT

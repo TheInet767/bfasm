@@ -1,0 +1,10 @@
+INCLUDE "lib/math_v2.bfasm" AS v2
+
+VAR a
+VAR b
+VAR t
+INC a 3
+INC b 2
+MUL@v2 a, b, t
+GOTO a
+OUTPUT

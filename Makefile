@@ -36,3 +36,5 @@ test: $(OUT) $(BFRUN)
 	@./$(OUT) tests/test_rawbf.bfasm > /tmp/_raw.bf && $(BFRUN) /tmp/_raw.bf | xxd
 	@echo "=== Test begin BF ==="
 	@./$(OUT) tests/test_beginbf.bfasm > /tmp/_raw.bf && $(BFRUN) /tmp/_raw.bf | xxd
+		@echo "=== Test 7: MUL (4*3=12) ==="
+	@./$(OUT) tests/lib/test_mul.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd

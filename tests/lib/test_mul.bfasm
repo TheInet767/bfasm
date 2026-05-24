@@ -1,0 +1,14 @@
+INCLUDE "lib/stdlib.bfasm"
+
+VAR result
+VAR a
+VAR b
+VAR t1
+VAR t2
+VAR t3
+
+INC a 4
+INC b 3
+MUL result, a, b, t1, t2, t3
+GOTO result
+OUTPUT

@@ -237,6 +237,66 @@ static void parse_macros_from_file(const char *filename, const char *alias,
     }
 }
 
+// Process a line that may be a macro call or an ordinary instruction.
+// Returns 0 on success, -1 on error.
+static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
+    // Check for macro call
+    char first_token[MAX_NAME] = {0};
+    sscanf(trimmed, "%63s", first_token);
+    int first_token_len = strlen(first_token);
+    char *at_sign = strchr(first_token, '@');
+    char call_name[MAX_MACRO_NAME];
+    char call_alias[MAX_NAME] = "";
+    if (at_sign) {
+        *at_sign = '\0';
+        strncpy(call_name, first_token, MAX_MACRO_NAME-1);
+        call_name[MAX_MACRO_NAME-1] = '\0';
+        strncpy(call_alias, at_sign + 1, MAX_NAME-1);
+        call_alias[MAX_NAME-1] = '\0';
+    } else {
+        strncpy(call_name, first_token, MAX_MACRO_NAME-1);
+        call_name[MAX_MACRO_NAME-1] = '\0';
+    }
+
+    Macro *macro = find_macro(ast, call_name, at_sign ? call_alias : NULL);
+    if (macro) {
+        // Extract arguments
+        const char *args_start = trimmed + first_token_len;
+        char args_str[256];
+        strncpy(args_str, trim((char*)args_start), 255);
+        args_str[255] = '\0';
+
+        char *arg_tokens[MAX_MACRO_PARAMS];
+        int arg_count = 0;
+        char *tok = strtok(args_str, ",");
+        while (tok) {
+            if (arg_count >= MAX_MACRO_PARAMS) break;
+            arg_tokens[arg_count] = trim(tok);
+            arg_count++;
+            tok = strtok(NULL, ",");
+        }
+        if (arg_count != macro->param_count) {
+            fprintf(stderr, "Error line %d: macro '%s' expects %d arguments, got %d\n",
+                    line_num, macro->name, macro->param_count, arg_count);
+            return -1;
+        }
+
+        // Expand each line of the macro body, recursively processing
+        for (int li = 0; li < macro->body_line_count; li++) {
+            char *expanded = substitute_line(macro->body[li], macro, arg_tokens);
+            if (process_expanded_line(expanded, ast, line_num) != 0) {
+                return -1;
+            }
+        }
+        return 0;
+    } else if (at_sign) {
+        fprintf(stderr, "Error line %d: macro '%s@%s' not found\n", line_num, call_name, call_alias);
+        return -1;
+    }
+
+    // Not a macro call, parse as ordinary instruction
+    return parse_line(trimmed, ast, line_num);
+}
 // ---- main parser ----
 
 AST parse_file(const char *filename) {
@@ -518,12 +578,10 @@ AST parse_file(const char *filename) {
 
             for (int li = 0; li < macro->body_line_count; li++) {
                 char *expanded = substitute_line(macro->body[li], macro, arg_tokens);
-                //fprintf(stderr, "DEBUG expanded: '%s'\n", expanded);
-                if (parse_line(expanded, &ast, line_num) != 0) {
+                if (process_expanded_line(expanded, &ast, line_num) != 0) {
                     ast.inst_count = -1; break;
-                
-                fprintf(stderr, "DEBUG expanded: '%s'\n", expanded);}
-            }
+                }
+            }            
             if (ast.inst_count == -1) break;
             continue;
         } else if (at_sign) {
@@ -686,8 +744,8 @@ AST parse_file(const char *filename) {
             continue;
         }
         
-        // --- Ordinary instruction ---
-        if (parse_line(trimmed, &ast, line_num) != 0) {
+        // --- Ordinary instruction (or macro call) ---
+        if (process_expanded_line(trimmed, &ast, line_num) != 0) {
             ast.inst_count = -1; break;
         }
     }

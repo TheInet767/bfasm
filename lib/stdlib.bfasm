@@ -45,3 +45,17 @@ MACRO MOV_SAFE(src, dst, tmp)
         GOTO tmp
     END
 ENDM
+
+; --- MUL: result = a * b, both a and b preserved ---
+; Uses three temporary cells: t1 (counter), t2 (for ADD), t3 (for MOV_SAFE)
+MACRO MUL(result, a, b, t1, t2, t3)
+    MOV_SAFE b, t1, t3   ; t1 = b, b unchanged (t3 is temporary for MOV_SAFE)
+    ZERO result           ; result = 0
+    LOOP t1
+        DEC t1
+        ADD result, a, t2  ; result += a, a unchanged (t2 temporary)
+        GOTO t1            ; return head to counter for loop check
+    END
+ENDM
+
+

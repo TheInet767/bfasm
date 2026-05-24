@@ -38,3 +38,7 @@ test: $(OUT) $(BFRUN)
 	@./$(OUT) tests/test_beginbf.bfasm > /tmp/_raw.bf && $(BFRUN) /tmp/_raw.bf | xxd
 		@echo "=== Test 7: MUL (4*3=12) ==="
 	@./$(OUT) tests/lib/test_mul.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+		@echo "=== Test NEG (0 -> 1) ==="
+	@./$(OUT) tests/lib/test_neg.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+	@echo "=== Test CMP equal (5==5 -> 1) ==="
+	@./$(OUT) tests/lib/test_cmp.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd

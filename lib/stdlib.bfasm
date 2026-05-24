@@ -58,4 +58,27 @@ MACRO MUL(result, a, b, t1, t2, t3)
     END
 ENDM
 
+MACRO NEG(result, tmp)
+    ZERO tmp
+    LOOP result
+        DEC result
+        INC tmp
+        GOTO result
+    END
+    INC result
+    GOTO tmp
+    LOOP tmp
+        DEC tmp
+        ZERO result
+        GOTO tmp
+    END
+ENDM
 
+; --- CMP: set result = 1 if a == b, else 0 ---
+; Uses two temporaries: t1 (copy of a), t2 (for SUB and NEG).
+MACRO CMP(result, a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; t1 = a
+    SUB t1, b, t2        ; t1 = a - b
+    NEG t1, t2           ; t1 = 1 if a == b else 0
+    MOV t1, result       ; result = t1, destroy t1
+ENDM

@@ -1,0 +1,11 @@
+INCLUDE "lib/stdlib.bfasm"
+VAR result
+VAR a
+VAR b
+VAR t1
+VAR t2
+INC a 5
+INC b 5
+CMP result, a, b, t1, t2
+GOTO result
+OUTPUT

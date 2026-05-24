@@ -1,0 +1,7 @@
+INCLUDE "lib/stdlib.bfasm"
+VAR a
+VAR t
+INC a 0        ; a = 0
+NEG a, t       ; a should become 1
+GOTO a
+OUTPUT

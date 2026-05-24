@@ -1,0 +1,15 @@
+; test_double.bfasm
+; Read a character, double its ASCII value, and print it.
+
+VAR a
+VAR b
+INPUT           ; read into a
+MOV a, b        ; copy a to b (destroys a)
+LOOP b          ; loop while b != 0
+    DEC b       ; decrement counter
+    INC a       ; increment a twice
+    INC a
+    GOTO b      ; return head to b for the ']' check
+END
+GOTO a
+OUTPUT

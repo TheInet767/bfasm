@@ -91,8 +91,7 @@ AST parse_file(const char *filename) {
                 fprintf(stderr, "Error line %d: invalid RESERVE value\n", line_num);
                 ast.inst_count = -1; break;
             }
-            // RESERVE just advances the variable counter without creating a name
-            ast.vars.count += n;  // next VAR will be placed after these reserved cells
+            ast.vars.count += n;
             continue;
         }
 
@@ -103,7 +102,6 @@ AST parse_file(const char *filename) {
                 fprintf(stderr, "Error line %d: VAR without name\n", line_num);
                 ast.inst_count = -1; break;
             }
-            // duplicate check
             int found = 0;
             for (int i = 0; i < ast.vars.count; i++) {
                 if (strcmp(ast.vars.names[i], name) == 0) {
@@ -126,9 +124,9 @@ AST parse_file(const char *filename) {
         // --- Instructions ---
         Instruction inst;
         memset(&inst, 0, sizeof(inst));
-        inst.operand = 1;  // default for INC/DEC/RIGHT/LEFT without explicit count
+        inst.operand = 1;  // default
 
-        // Helper macros to parse optional numeric argument
+        // Helper macro for RIGHT/LEFT numeric argument
         #define PARSE_NUM_OR_DEFAULT(s, default_val) \
             do { \
                 char *arg = trim(s); \
@@ -142,31 +140,73 @@ AST parse_file(const char *filename) {
                 } \
             } while(0)
 
+        // --- INC ---
         if (strncmp(trimmed, "INC", 3) == 0) {
             inst.type = INST_INC;
             char *rest = trim(trimmed + 3);
             if (*rest == '\0') {
-                // just INC – operate on current cell
-            } else if (isdigit(*rest)) {
-                PARSE_NUM_OR_DEFAULT(rest, 1);
+                inst.operand = 1;
             } else {
-                // variable name
-                strncpy(inst.var_name, rest, MAX_NAME-1);
-                inst.var_name[MAX_NAME-1] = '\0';
+                char first_token[MAX_NAME] = {0};
+                char second_token[MAX_NAME] = {0};
+                int parsed = sscanf(rest, "%63s %63s", first_token, second_token);
+                if (parsed == 1) {
+                    char *endp;
+                    long val = strtol(first_token, &endp, 10);
+                    if (*endp == '\0' && val >= 0) {
+                        inst.operand = (int)val;
+                    } else {
+                        strncpy(inst.var_name, first_token, MAX_NAME-1);
+                        inst.var_name[MAX_NAME-1] = '\0';
+                        inst.operand = 1;
+                    }
+                } else if (parsed == 2) {
+                    strncpy(inst.var_name, first_token, MAX_NAME-1);
+                    inst.var_name[MAX_NAME-1] = '\0';
+                    char *endp;
+                    long val = strtol(second_token, &endp, 10);
+                    if (*endp != '\0' || val < 0) {
+                        fprintf(stderr, "Error line %d: invalid number '%s' after variable\n", line_num, second_token);
+                        ast.inst_count = -1; break;
+                    }
+                    inst.operand = (int)val;
+                }
             }
         }
+        // --- DEC ---
         else if (strncmp(trimmed, "DEC", 3) == 0) {
             inst.type = INST_DEC;
             char *rest = trim(trimmed + 3);
             if (*rest == '\0') {
-                // just DEC
-            } else if (isdigit(*rest)) {
-                PARSE_NUM_OR_DEFAULT(rest, 1);
+                inst.operand = 1;
             } else {
-                strncpy(inst.var_name, rest, MAX_NAME-1);
-                inst.var_name[MAX_NAME-1] = '\0';
+                char first_token[MAX_NAME] = {0};
+                char second_token[MAX_NAME] = {0};
+                int parsed = sscanf(rest, "%63s %63s", first_token, second_token);
+                if (parsed == 1) {
+                    char *endp;
+                    long val = strtol(first_token, &endp, 10);
+                    if (*endp == '\0' && val >= 0) {
+                        inst.operand = (int)val;
+                    } else {
+                        strncpy(inst.var_name, first_token, MAX_NAME-1);
+                        inst.var_name[MAX_NAME-1] = '\0';
+                        inst.operand = 1;
+                    }
+                } else if (parsed == 2) {
+                    strncpy(inst.var_name, first_token, MAX_NAME-1);
+                    inst.var_name[MAX_NAME-1] = '\0';
+                    char *endp;
+                    long val = strtol(second_token, &endp, 10);
+                    if (*endp != '\0' || val < 0) {
+                        fprintf(stderr, "Error line %d: invalid number '%s' after variable\n", line_num, second_token);
+                        ast.inst_count = -1; break;
+                    }
+                    inst.operand = (int)val;
+                }
             }
         }
+        // --- ZERO ---
         else if (strncmp(trimmed, "ZERO", 4) == 0) {
             inst.type = INST_ZERO;
             char *rest = trim(trimmed + 4);
@@ -175,12 +215,15 @@ AST parse_file(const char *filename) {
                 inst.var_name[MAX_NAME-1] = '\0';
             }
         }
+        // --- INPUT ---
         else if (strcmp(trimmed, "INPUT") == 0) {
             inst.type = INST_INPUT;
         }
+        // --- OUTPUT ---
         else if (strcmp(trimmed, "OUTPUT") == 0) {
             inst.type = INST_OUTPUT;
         }
+        // --- LOOP ---
         else if (strncmp(trimmed, "LOOP", 4) == 0) {
             inst.type = INST_LOOP_START;
             char *rest = trim(trimmed + 4);
@@ -189,9 +232,11 @@ AST parse_file(const char *filename) {
                 inst.var_name[MAX_NAME-1] = '\0';
             }
         }
+        // --- END ---
         else if (strcmp(trimmed, "END") == 0) {
             inst.type = INST_LOOP_END;
         }
+        // --- MOV ---
         else if (strncmp(trimmed, "MOV ", 4) == 0) {
             inst.type = INST_MOV;
             char *args = trim(trimmed + 4);
@@ -212,6 +257,7 @@ AST parse_file(const char *filename) {
             strncpy(inst.dst_var, dst, MAX_NAME-1);
             inst.dst_var[MAX_NAME-1] = '\0';
         }
+        // --- GOTO ---
         else if (strncmp(trimmed, "GOTO ", 5) == 0) {
             inst.type = INST_GOTO;
             char *name = trim(trimmed + 5);
@@ -222,11 +268,13 @@ AST parse_file(const char *filename) {
             strncpy(inst.var_name, name, MAX_NAME-1);
             inst.var_name[MAX_NAME-1] = '\0';
         }
+        // --- RIGHT ---
         else if (strncmp(trimmed, "RIGHT", 5) == 0) {
             inst.type = INST_RIGHT;
             char *rest = trim(trimmed + 5);
             PARSE_NUM_OR_DEFAULT(rest, 1);
         }
+        // --- LEFT ---
         else if (strncmp(trimmed, "LEFT", 4) == 0) {
             inst.type = INST_LEFT;
             char *rest = trim(trimmed + 4);

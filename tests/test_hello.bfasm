@@ -1,0 +1,6 @@
+; test_hello.bfasm
+; Prints 'H' (ASCII 72)
+VAR a
+INC a 72
+GOTO a
+OUTPUT

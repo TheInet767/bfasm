@@ -1,0 +1,70 @@
+; diamond.bfasm – ромб из звёздочек
+INCLUDE "lib/stdlib.bfasm"
+
+; переменные
+ORG 0
+VAR space_char
+VAR star_char
+VAR newline
+VAR spaces
+VAR stars
+VAR tmp1
+VAR tmp2
+
+; инициализация символов
+INC space_char 32
+INC star_char 42
+INC newline 10
+
+; ----- макрос печати одной строки -----
+MACRO PRINT_ROW(spaces, stars, tmp1, tmp2)
+    ; пробелы
+    MOV_SAFE spaces, tmp1, tmp2    ; tmp1 = spaces
+    LOOP tmp1
+        DEC tmp1
+        GOTO space_char
+        OUTPUT
+        GOTO tmp1
+    END
+    ; звёзды
+    MOV_SAFE stars, tmp1, tmp2
+    LOOP tmp1
+        DEC tmp1
+        GOTO star_char
+        OUTPUT
+        GOTO tmp1
+    END
+    ; новая строка
+    GOTO newline
+    OUTPUT
+ENDM
+
+; ----- верхняя часть ромба + средняя строка -----
+INC spaces 2
+INC stars 1
+PRINT_ROW spaces, stars, tmp1, tmp2
+
+ZERO spaces
+ZERO stars
+INC spaces 1
+INC stars 3
+PRINT_ROW spaces, stars, tmp1, tmp2
+
+ZERO spaces
+ZERO stars
+INC spaces 0
+INC stars 5
+PRINT_ROW spaces, stars, tmp1, tmp2
+
+; ----- нижняя часть ромба (без средней) -----
+ZERO spaces
+ZERO stars
+INC spaces 1
+INC stars 3
+PRINT_ROW spaces, stars, tmp1, tmp2
+
+ZERO spaces
+ZERO stars
+INC spaces 2
+INC stars 1
+PRINT_ROW spaces, stars, tmp1, tmp2

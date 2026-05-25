@@ -1,0 +1,39 @@
+; Hello World на BFASM
+ORG 0
+VAR ch
+
+    INC ch 72   ; 'H'
+    GOTO ch
+    OUTPUT
+
+    INC ch 29   ; 'e'
+    OUTPUT
+
+    INC ch 7    ; 'l'
+    OUTPUT
+
+    OUTPUT      ; ещё 'l'
+
+    INC ch 3    ; 'o'
+    OUTPUT
+
+    DEC ch 79   ; пробел (111-79=32)
+    OUTPUT
+
+    INC ch 55   ; 'W'
+    OUTPUT
+
+    INC ch 24   ; 'o'
+    OUTPUT
+
+    INC ch 3    ; 'r'
+    OUTPUT
+
+    DEC ch 6    ; 'l' (114-6=108)
+    OUTPUT
+
+    DEC ch 8    ; 'd' (108-8=100)
+    OUTPUT
+
+    DEC ch 67   ; '!' (100-67=33)
+    OUTPUT

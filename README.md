@@ -21,16 +21,20 @@ This is a hobby project, built for fun and learning.
 - **Libraries with namespaces** – `INCLUDE` with optional `AS` and `KEEP`,
   conflict resolution via `@`.
 
-## Current Status (v0.2.1)
+## Current Status (v0.3.1)
 
 - C99 compiler (`bfasm`) and minimal BF interpreter (`bfrun`) for testing.
 - Supported instructions: `VAR`, `ORG`, `RESERVE`, `INC`, `DEC`, `ZERO`,
-  `INPUT`, `OUTPUT`, `LOOP`, `END`, `MOV`, `GOTO`, `RIGHT`, `LEFT`.
+  `INPUT`, `OUTPUT`, `LOOP`, `END`, `MOV`, `GOTO`, `RIGHT`, `LEFT`,
+  `MOVEBY`, `MOVEBY_LEFT`.
 - Macro system with parameters (`MACRO`/`ENDM`).
 - Module system: `INCLUDE`, `INCLUDE … AS`, `INCLUDE … KEEP`,
   name‑resolution with `@`.
 - Raw Brainfuck insertion: `BF`, `BEGINBF`…`END`, `INCLUDEBF`.
-- Core standard library: `ADD`, `SUB`, `MOV_SAFE`, `MUL`, `NEG`, `CMP`.
+- Core standard library (`stdlib`): `ADD`, `SUB`, `MOV_SAFE`, `MUL`, `NEG`,
+  `CMP`, `SWAP`, `ISEQ`.
+- I/O library (`io`): `PRINT_CHAR`, `INPUT_CHAR`.
+
 
 ## Language Reference
 

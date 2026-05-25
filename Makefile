@@ -49,4 +49,9 @@ test: $(OUT) $(BFRUN)
 	@./$(OUT) tests/lib/test_io_char.bfasm > /tmp/_io.bf && echo -n 'A' | $(BFRUN) /tmp/_io.bf
 	@echo
 	@rm -f /tmp/_io.bf
-
+	@echo "=== Test logic.bfasm ==="
+	@./$(OUT) tests/lib/test_logic.bfasm > /tmp/_logic.bf && $(BFRUN) /tmp/_logic.bf | xxd
+	@rm -f /tmp/_logic.bf
+		@echo "=== Test logicbyte.bfasm ==="
+	@./$(OUT) tests/lib/test_logicbyte.bfasm > /tmp/_logicbyte.bf && $(BFRUN) /tmp/_logicbyte.bf | xxd
+	@rm -f /tmp/_logicbyte.bf

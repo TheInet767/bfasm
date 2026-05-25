@@ -1,0 +1,109 @@
+; Test for lib/logic.bfasm – logical operations on 0/1
+INCLUDE "lib/stdlib.bfasm"
+INCLUDE "lib/logic.bfasm"
+
+VAR a
+VAR b
+VAR result
+VAR t1
+VAR t2
+VAR t3
+VAR t4
+VAR t5
+VAR t6
+;------------------------------------------------
+; 1. BOOL: normalize any non‑zero → 1, zero → 0
+;------------------------------------------------
+ZERO a
+ZERO result
+INC a 5          ; a = 5 (non‑zero)
+BOOL a, t1       ; a should become 1
+GOTO a
+OUTPUT            ; ожидаем 0x01
+
+ZERO a
+ZERO result
+INC a 0          ; a = 0
+BOOL a, t1       ; a should stay 0
+GOTO a
+OUTPUT            ; ожидаем 0x00
+
+;------------------------------------------------
+; 2. NOT
+;------------------------------------------------
+ZERO a
+ZERO result
+INC a 0          ; a = 0 → NOT a = 1
+NOT a, result, t1
+GOTO result
+OUTPUT            ; ожидаем 0x01
+
+ZERO a
+ZERO result
+INC a 7          ; a ≠ 0 → NOT a = 0
+NOT a, result, t1
+GOTO result
+OUTPUT            ; ожидаем 0x00
+
+;------------------------------------------------
+; 3. AND (both non‑zero → 1, else 0)
+;------------------------------------------------
+ZERO a
+ZERO b
+ZERO result
+INC a 5
+INC b 3
+AND a, b, result, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем 0x01
+
+ZERO a
+ZERO b
+ZERO result
+INC a 0
+INC b 3
+AND a, b, result, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем 0x00
+
+;------------------------------------------------
+; 4. OR (at least one non‑zero → 1)
+;------------------------------------------------
+ZERO a
+ZERO b
+ZERO result
+INC a 5
+INC b 0
+OR a, b, result, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем 0x01
+
+ZERO a
+ZERO b
+ZERO result
+INC a 0
+INC b 0
+OR a, b, result, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем 0x00
+
+;------------------------------------------------
+; 5. XOR (exactly one non‑zero → 1)
+;------------------------------------------------
+ZERO a
+ZERO b
+ZERO result
+INC a 5
+INC b 0
+XOR a, b, result, t1, t2, t3, t4, t5, t6
+GOTO result
+OUTPUT            ; ожидаем 0x01
+
+ZERO a
+ZERO b
+ZERO result
+INC a 5
+INC b 3
+XOR a, b, result, t1, t2, t3, t4, t5, t6
+GOTO result
+OUTPUT            ; ожидаем 0x00

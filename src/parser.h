@@ -12,7 +12,7 @@
 #define INIT_MACROS_CAPACITY   8
 
 #define MAX_NAME              64
-#define MAX_MACRO_PARAMS       8
+#define MAX_MACRO_PARAMS      16
 #define MAX_MACRO_LINES       64
 #define MAX_MACRO_NAME        64
 

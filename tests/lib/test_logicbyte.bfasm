@@ -1,0 +1,36 @@
+INCLUDE "lib/stdlib.bfasm"
+INCLUDE "lib/logicbyte.bfasm"
+
+VAR a, b, result
+VAR t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+
+; BITAND: 0x55 & 0xAA = 0
+INC a 85      ; 0x55
+INC b 170     ; 0xAA
+BITAND a, b, result, t1, t2, t3, t4, t5, t6
+GOTO result
+OUTPUT          ; ожидаем 0x00
+
+; BITOR:  0x55 | 0xAA = 0xFF (255)
+ZERO a
+ZERO b
+INC a 85
+INC b 170
+BITOR a, b, result, t1, t2, t3, t4, t5, t6, t7, t8
+GOTO result
+OUTPUT          ; ожидаем 0xFF
+
+; BITXOR: 0x55 ^ 0xAA = 0xFF
+ZERO a
+ZERO b
+INC a 85
+INC b 170
+BITXOR a, b, result, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+GOTO result
+OUTPUT          ; ожидаем 0xFF
+
+; BITNOT: NOT 0x00 = 0xFF
+ZERO a
+BITNOT a, result, t1
+GOTO result
+OUTPUT          ; ожидаем 0xFF

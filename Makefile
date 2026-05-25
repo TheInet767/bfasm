@@ -45,3 +45,8 @@ test: $(OUT) $(BFRUN)
 		@echo "=== Test SWAP and ISEQ ==="
 	@./$(OUT) tests/lib/test_swap_iseq.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
 	@rm -f /tmp/_bf.bf
+		@echo "=== Test I/O char (A -> B) ==="
+	@./$(OUT) tests/lib/test_io_char.bfasm > /tmp/_io.bf && echo -n 'A' | $(BFRUN) /tmp/_io.bf
+	@echo
+	@rm -f /tmp/_io.bf
+

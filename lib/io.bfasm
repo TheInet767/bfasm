@@ -1,0 +1,13 @@
+; lib/io.bfasm – Character input/output for BFASM
+
+; --- PRINT_CHAR: output a character from a named variable ---
+MACRO PRINT_CHAR(var)
+    GOTO var
+    OUTPUT
+ENDM
+
+; --- INPUT_CHAR: read a character into a named variable ---
+MACRO INPUT_CHAR(var)
+    GOTO var
+    INPUT
+ENDM

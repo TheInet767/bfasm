@@ -1,0 +1,8 @@
+INCLUDE "lib/io.bfasm"
+
+VAR a
+
+; Read a character, increment it, and print it
+INPUT_CHAR a
+INC a
+PRINT_CHAR a

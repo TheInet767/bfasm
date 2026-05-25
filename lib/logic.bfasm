@@ -1,0 +1,47 @@
+; lib/logic.bfasm – logical operations (any non‑zero → 1)
+; Requires: lib/stdlib.bfasm (MOV_SAFE, SUB, MUL, ZERO, INC, LOOP, END)
+
+; --- BOOL: x = 1 if x != 0, else x = 0 ---
+MACRO BOOL(x, tmp)
+    MOV_SAFE x, tmp, x       ; tmp = x
+    ZERO x
+    LOOP tmp
+        INC x
+        ZERO tmp
+    END
+ENDM
+
+; --- NOT: result = 1 if x == 0, else 0 ---
+MACRO NOT(x, result, tmp)
+    ZERO result
+    INC result               ; result = 1
+    BOOL x, tmp              ; x = 0 or 1
+    SUB result, x, tmp       ; result = 1 - x
+ENDM
+
+; --- AND: result = 1 if both a and b are non‑zero ---
+MACRO AND(a, b, result, t1, t2, t3)
+    BOOL a, t1
+    BOOL b, t2
+    MUL result, a, b, t1, t2, t3   ; 1*1=1, иначе 0
+ENDM
+
+; --- OR: result = 1 if at least one is non‑zero ---
+MACRO OR(a, b, result, tmp1, tmp2, tmp3)
+    BOOL a, tmp1
+    BOOL b, tmp2
+    ; result = a + b (0,1,2)
+    ZERO result
+    ADD result, a, tmp1
+    ADD result, b, tmp1
+    ; обрезаем до 1
+    BOOL result, tmp1
+ENDM
+
+; --- XOR: result = 1 if exactly one is non‑zero ---
+MACRO XOR(a, b, result, t_and, t_or, t_not, t1, t2, t3)
+    AND a, b, t_and, t1, t2, t3
+    NOT t_and, t_not, t1
+    OR a, b, t_or, t1, t2, t3
+    AND t_or, t_not, result, t1, t2, t3
+ENDM

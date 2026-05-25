@@ -719,7 +719,7 @@ AST parse_file(const char *filename) {
     return ast;
 }
 
-// ---- parse_line: include MOVEBY and MOVEBY_LEFT ----
+// ---- parse_line: include MOVEBY, MOVEBY_LEFT and CMP_GE ----
 static int parse_line(char *trimmed, AST *ast, int line_num) {
     Instruction inst;
     memset(&inst, 0, sizeof(inst));
@@ -889,6 +889,56 @@ static int parse_line(char *trimmed, AST *ast, int line_num) {
         strncpy(inst.var_name, name, MAX_NAME-1);
         inst.var_name[MAX_NAME-1] = '\0';
     }
+    // --- CMP_GE result, a, b, t1, t2 ---
+    else if (strncmp(trimmed, "CMP_GE ", 7) == 0) {
+    inst.type = INST_CMP_GE;
+    char *args = trim(trimmed + 7);
+
+    // Извлекаем первый аргумент (result)
+    char *comma = strchr(args, ',');
+    if (!comma) { fprintf(stderr, "Error line %d: CMP_GE expects at least 5 arguments\n", line_num); return -1; }
+    *comma = '\0';
+    char *result = trim(args);
+    args = trim(comma + 1);
+
+    // a
+    comma = strchr(args, ',');
+    if (!comma) { fprintf(stderr, "Error line %d: CMP_GE expects at least 5 arguments\n", line_num); return -1; }
+    *comma = '\0';
+    char *a = trim(args);
+    args = trim(comma + 1);
+
+    // b
+    comma = strchr(args, ',');
+    if (!comma) { fprintf(stderr, "Error line %d: CMP_GE expects at least 5 arguments\n", line_num); return -1; }
+    *comma = '\0';
+    char *b = trim(args);
+    args = trim(comma + 1);
+
+    // t1
+    comma = strchr(args, ',');
+    if (!comma) { fprintf(stderr, "Error line %d: CMP_GE expects at least 5 arguments\n", line_num); return -1; }
+    *comma = '\0';
+    char *t1 = trim(args);
+    args = trim(comma + 1);
+
+    // t2 (может содержать запятую, если есть шестой аргумент)
+    char *t2 = args;
+    comma = strchr(t2, ',');   // если шестой аргумент есть – обрежем
+    if (comma) *comma = '\0';
+    t2 = trim(t2);
+    // шестой аргумент (если был) просто игнорируем
+
+    if (strlen(result)==0 || strlen(a)==0 || strlen(b)==0 || strlen(t1)==0 || strlen(t2)==0) {
+        fprintf(stderr, "Error line %d: CMP_GE requires first 5 arguments to be non-empty\n", line_num);
+        return -1;
+    }
+    strncpy(inst.var_name, result, MAX_NAME-1);
+    strncpy(inst.src_var, a, MAX_NAME-1);
+    strncpy(inst.dst_var, b, MAX_NAME-1);
+    strncpy(inst.tmp1, t1, MAX_NAME-1);
+    strncpy(inst.tmp2, t2, MAX_NAME-1);
+}
     else {
         fprintf(stderr, "Error line %d: unknown instruction '%s'\n", line_num, trimmed);
         return -1;

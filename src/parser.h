@@ -31,7 +31,8 @@ typedef enum {
     INST_LEFT,
     INST_RAWBF,
     INST_MOVEBY,       // MOVEBY var – move right by var cells, destroys var
-    INST_MOVEBY_LEFT   // MOVEBY_LEFT var – move left by var cells, destroys var
+    INST_MOVEBY_LEFT,   // MOVEBY_LEFT var – move left by var cells, destroys var
+    INST_CMP_GE
 } InstType;
 
 #define RAWBF_MAX 1024
@@ -39,13 +40,14 @@ typedef enum {
 // ---------- Single instruction ----------
 typedef struct {
     InstType type;
-    char var_name[MAX_NAME];
+    char var_name[MAX_NAME];   // result
     int  operand;
-    char src_var[MAX_NAME];
-    char dst_var[MAX_NAME];
+    char src_var[MAX_NAME];    // a
+    char dst_var[MAX_NAME];    // b
+    char tmp1[MAX_NAME];       // t1
+    char tmp2[MAX_NAME];       // t2
     char raw_bf[RAWBF_MAX];
 } Instruction;
-
 // ---------- Macro definition ----------
 typedef struct {
     char name[MAX_MACRO_NAME];

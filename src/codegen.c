@@ -148,7 +148,74 @@ void generate_bf(const AST *ast) {
                 head_pos = 0;
                 break;
 
-            default:
+                       
+            case INST_CMP_GE: {
+    int res = var_index(&ast->vars, inst.var_name);
+    int idx_a = var_index(&ast->vars, inst.src_var);
+    int idx_b = var_index(&ast->vars, inst.dst_var);
+    int idx_t1 = var_index(&ast->vars, inst.tmp1);
+    int idx_t2 = var_index(&ast->vars, inst.tmp2);
+    if (res < 0 || idx_a < 0 || idx_b < 0 || idx_t1 < 0 || idx_t2 < 0) {
+        fprintf(stderr, "Internal error: undefined variable in CMP_GE\n");
+        return;
+    }
+
+    // result = 1 (предполагаем a >= b)
+    move_head(&head_pos, res);
+    printf("[-]+");
+
+    // while (a > 0)
+    move_head(&head_pos, idx_a);
+    printf("[");
+    {
+        // if (b > 0) b--;
+        // Копируем b в t1 и t2, b обнуляется
+        move_head(&head_pos, idx_b);
+        printf("[-");
+        move_head(&head_pos, idx_t1);
+        printf("+");
+        move_head(&head_pos, idx_t2);
+        printf("+");
+        move_head(&head_pos, idx_b);
+        printf("]");
+
+        // Восстанавливаем b из t2 (t2 = 0)
+        move_head(&head_pos, idx_t2);
+        printf("[-");
+        move_head(&head_pos, idx_b);
+        printf("+");
+        move_head(&head_pos, idx_t2);
+        printf("]");
+
+        // Если t1 (старое b) было > 0, то b-- и t1 = 0
+        move_head(&head_pos, idx_t1);
+        printf("[");
+        printf("-");
+        move_head(&head_pos, idx_b);
+        printf("-");
+        move_head(&head_pos, idx_t1);
+        printf("]");
+
+        // a--
+        move_head(&head_pos, idx_a);
+        printf("-");
+    }
+    move_head(&head_pos, idx_a);
+    printf("]");
+
+    // После цикла: если b > 0, значит a < b → result = 0
+    move_head(&head_pos, idx_b);
+    printf("[");
+    move_head(&head_pos, res);
+    printf("[-]");
+    move_head(&head_pos, idx_b);
+    printf("[-]");
+    printf("]");
+
+    // Оставляем головку на result для последующего вывода
+    move_head(&head_pos, res);
+    break;
+}            default:
                 fprintf(stderr, "Internal error: unknown instruction type %d\n", inst.type);
                 return;
         }

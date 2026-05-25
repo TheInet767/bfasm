@@ -1,0 +1,27 @@
+INCLUDE "lib/stdlib.bfasm"
+INCLUDE "lib/math.bfasm"
+
+VAR result
+VAR a
+VAR b
+VAR t1
+VAR t2
+VAR t3
+
+; Test 1: 5 >= 3 → 1
+ZERO a
+ZERO b
+INC a 5
+INC b 3
+CMP_GE result, a, b, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем байт 0x01
+
+; Test 2: 3 >= 5 → 0
+ZERO a
+ZERO b
+INC a 3
+INC b 5
+CMP_GE result, a, b, t1, t2, t3
+GOTO result
+OUTPUT            ; ожидаем байт 0x00

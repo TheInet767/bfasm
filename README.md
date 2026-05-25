@@ -136,16 +136,44 @@ make          # build bfasm and bfrun
 make test     # run all tests
 make clean
 
-##  Roadmap
-DIV, MOD, MIN, MAX (require CMP_GE).
 
-Stack library (PUSH, POP, PEEK).
+## Roadmap
 
-Lazy loading of modules with indexing (v0.3.0).
+### ✅ Completed (v0.1.0 – v0.3.1)
+- [x] Basic instructions: `VAR`, `ORG`, `RESERVE`, `INC`, `DEC`, `ZERO`, `INPUT`, `OUTPUT`, `LOOP`, `END`, `MOV`, `GOTO`, `RIGHT`, `LEFT`.
+- [x] Macro system with parameters (`MACRO`/`ENDM`).
+- [x] Module system: `INCLUDE`, `INCLUDE … AS`, `INCLUDE … KEEP`, name‑resolution with `@`.
+- [x] Raw Brainfuck insertion: `BF`, `BEGINBF`…`END`, `INCLUDEBF`.
+- [x] Dynamic offset instructions: `MOVEBY`, `MOVEBY_LEFT` (v0.3.0).
+- [x] Core standard library (`stdlib`): `ADD`, `SUB`, `MOV_SAFE`, `MUL`, `NEG`, `CMP`.
+- [x] `SWAP`, `ISEQ` added to `stdlib` (v0.3.1).
+- [x] Character I/O library (`io`): `PRINT_CHAR`, `INPUT_CHAR` (v0.3.1).
+- [x] Dynamic memory for AST (no fixed limits).
 
-Meta‑compiled libraries (.bfml) and link manifests (.bflink) (v0.4.0).
+### 🔜 Next (v0.4.0 – built‑in comparison instructions)
+- [ ] Built‑in instructions `CMP_GE`, `CMP_GT`, `CMP_LE` (low‑level, explicit temps).
+- [ ] Print/read numbers (`PRINT_NUM`, `READ_NUM`) using `CMP_GE` and division.
+- [ ] Math library: `DIV`, `MOD`, `MIN`, `MAX`, `ISLT`, `ABS`, `SIGN`.
+- [ ] Bitwise library: `AND`, `OR`, `XOR`, `NOT`.
+- [ ] Shift library: `SHL`, `SHR`, `ROL`, `ROR`.
 
-High‑level language BFL that compiles to BFASM (v1.0.0).
+### 🧪 v0.5.0 – Developer Experience
+- [ ] Peephole optimizer for generated Brainfuck (remove `><`, `+-`, fuse `[-]`).
+- [ ] Source map generation (`.map` file) for debugging.
+- [ ] Static analyzer: warnings for unbalanced loops, potential tape overflows.
+- [ ] Interactive debugger for `bfrun` with breakpoints and tape inspection.
+
+### 📦 v0.6.0 – Ecosystem
+- [ ] Lazy loading of modules with caching (no more full tree loading).
+- [ ] Meta‑compiled libraries (`.bfml`) for faster inclusion.
+- [ ] Link manifests (`.bflink`) to declare dependencies.
+- [ ] Standard library registry / package manager (optional).
+
+### 🚀 v1.0.0 – High‑Level Language BFL
+- [ ] Compiler `bfl` that generates BFASM code.
+- [ ] Familiar syntax (functions, variables, conditions, loops).
+- [ ] Full interoperability with existing BFASM macros and libraries.
+- [ ] Self‑hosting? (stretch goal)
 
 ## LICENSE
 GPL-2.0 (see LICENSE file).

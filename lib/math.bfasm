@@ -1,0 +1,3 @@
+; lib/math.bfasm – Extended arithmetic for BFASM
+; Requires: lib/stdlib.bfasm
+ 

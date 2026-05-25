@@ -1,0 +1,242 @@
+; lib/stdlib.bfasm – Standard macro library for BFASM
+
+; --- ADD: dst += src, src preserved (needs a temporary cell) ---
+MACRO ADD(dst, src, tmp)
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM
+
+; --- SUB: dst -= src, src preserved ---
+MACRO SUB(dst, src, tmp)
+    LOOP src
+        DEC src
+        DEC dst
+        INC tmp
+        GOTO src
+    END
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM
+
+; --- MOV_SAFE: copy src to dst without destroying src (needs tmp) ---
+MACRO MOV_SAFE(src, dst, tmp)
+    ZERO dst
+    LOOP src
+        DEC src
+        INC dst
+        INC tmp
+        GOTO src
+    END
+    GOTO tmp
+    LOOP tmp
+        DEC tmp
+        INC src
+        GOTO tmp
+    END
+ENDM
+
+; --- MUL: result = a * b, both a and b preserved ---
+; Uses three temporary cells: t1 (counter), t2 (for ADD), t3 (for MOV_SAFE)
+MACRO MUL(result, a, b, t1, t2, t3)
+    MOV_SAFE b, t1, t3   ; t1 = b, b unchanged (t3 is temporary for MOV_SAFE)
+    ZERO result           ; result = 0
+    LOOP t1
+        DEC t1
+        ADD result, a, t2  ; result += a, a unchanged (t2 temporary)
+        GOTO t1            ; return head to counter for loop check
+    END
+ENDM
+
+MACRO NEG(result, tmp)
+    ZERO tmp
+    LOOP result
+        DEC result
+        INC tmp
+        GOTO result
+    END
+    INC result
+    GOTO tmp
+    LOOP tmp
+        DEC tmp
+        ZERO result
+        GOTO tmp
+    END
+ENDM
+
+; --- CMP: set result = 1 if a == b, else 0 ---
+; Uses two temporaries: t1 (copy of a), t2 (for SUB and NEG).
+MACRO CMP(result, a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; t1 = a
+    SUB t1, b, t2        ; t1 = a - b
+    NEG t1, t2           ; t1 = 1 if a == b else 0
+    MOV t1, result       ; result = t1, destroy t1
+ENDM
+
+; --- SWAP: exchange values of a and b ---
+MACRO SWAP(a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; tmp = a
+    ZERO a
+    MOV b, a     ; a = b
+    MOV_SAFE t1, b, t2  ; b = old a
+ENDM
+
+; --- ISEQ: dest = (a == b) ? 1 : 0 ---
+MACRO ISEQ(dest, a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; t1 = a
+    SUB t1, b, t2        ; t1 = a - b
+    NEG t1, t2           ; t1 = 1 if a == b else 0
+    MOV_SAFE t1, dest, t2 ; dest = result
+ENDM
+
+; --- BITNOT: result = 255 - x (bitwise NOT) ---
+MACRO BITNOT(x, result, tmp)
+    ZERO result
+    INC result 255
+    SUB result, x, tmp
+ENDM
+
+; --- BITAND: result = a & b ---
+; Uses t1..t6 as temporaries.
+MACRO BITAND(a, b, result, t1, t2, t3, t4, t5, t6)
+    ZERO result
+    MOV_SAFE a, t1, t3       ; t1 = a
+    MOV_SAFE b, t2, t3       ; t2 = b
+    ZERO t5
+    INC t5                   ; t5 = 1 (bit mask)
+
+    LOOP t1                  ; while t1 > 0
+        ; извлечь младший бит t1
+        MOV_SAFE t1, t4, t3  ; t4 = t1
+        ZERO t6
+        LOOP t4
+            DEC t4
+            DEC t4
+            INC t6
+            GOTO t4
+        END
+        ; t6 = t1 mod 2 (младший бит)
+
+        ; извлечь младший бит t2 (аналогично)
+        MOV_SAFE t2, t4, t3
+        ZERO t3
+        LOOP t4
+            DEC t4
+            DEC t4
+            INC t3
+            GOTO t4
+        END
+        ; t3 = t2 mod 2
+
+        ; если оба бита = 1, добавить t5 к result
+        MOV_SAFE t6, t4, t6   ; t4 = бит a
+        LOOP t4
+            MOV_SAFE t3, t4, t3
+            LOOP t4
+                ADD result, t5, t4
+                ZERO t4
+            END
+            ZERO t4
+        END
+
+        ; сдвинуть t1 и t2 вправо на 1 (t1 = t1/2, t2 = t2/2)
+        ZERO t4
+        LOOP t1
+            DEC t1
+            DEC t1
+            INC t4
+            GOTO t1
+        END
+        MOV_SAFE t4, t1, t3   ; t1 = t4
+
+        ZERO t4
+        LOOP t2
+            DEC t2
+            DEC t2
+            INC t4
+            GOTO t2
+        END
+        MOV_SAFE t4, t2, t3   ; t2 = t4
+
+        ; t5 = t5 * 2
+        MOV_SAFE t5, t4, t3
+        ADD t5, t4, t3
+        MOV_SAFE t4, t5, t3
+    END
+ENDM
+
+; --- BITOR: result = a | b ---
+; Uses t1..t5 as temporaries.
+MACRO BITOR(a, b, result, t1, t2, t3, t4, t5)
+    ZERO result
+    MOV_SAFE a, t1, t3       ; t1 = a
+    MOV_SAFE b, t2, t3       ; t2 = b
+    ZERO t4
+    INC t4                   ; t4 = 1 (bit mask)
+
+    LOOP t1
+        ; младший бит t1
+        MOV_SAFE t1, t5, t3
+        ZERO t3
+        LOOP t5
+            DEC t5
+            DEC t5
+            INC t3
+            GOTO t5
+        END
+
+        ; младший бит t2
+        MOV_SAFE t2, t5, t3
+        ZERO t3
+        LOOP t5
+            DEC t5
+            DEC t5
+            INC t3
+            GOTO t5
+        END
+
+        ; t5 = бит a, t3 = бит b
+        ; если хотя бы один бит = 1, добавить маску
+        ZERO t5
+        ADD t5, t3, t3        ; t5 = бит a
+        ADD t5, t5, t3        ; t5 = бит a + бит b
+        LOOP t5
+            ADD result, t4, t3
+            ZERO t5
+        END
+
+        ; сдвинуть t1, t2, t4
+        ZERO t5
+        LOOP t1
+            DEC t1
+            DEC t1
+            INC t5
+            GOTO t1
+        END
+        MOV_SAFE t5, t1, t3
+
+        ZERO t5
+        LOOP t2
+            DEC t2
+            DEC t2
+            INC t5
+            GOTO t2
+        END
+        MOV_SAFE t5, t2, t3
+
+        MOV_SAFE t4, t5, t3
+        ADD t4, t5, t3
+        MOV_SAFE t5, t4, t3
+    END
+ENDM

@@ -39,7 +39,6 @@ MACRO MOV_SAFE(src, dst, tmp)
         INC tmp
         GOTO src
     END
-    GOTO tmp
     LOOP tmp
         DEC tmp
         INC src
@@ -50,12 +49,12 @@ ENDM
 ; --- MUL: result = a * b, both a and b preserved ---
 ; Uses three temporary cells: t1 (counter), t2 (for ADD), t3 (for MOV_SAFE)
 MACRO MUL(result, a, b, t1, t2, t3)
-    MOV_SAFE b, t1, t3   ; t1 = b, b unchanged (t3 is temporary for MOV_SAFE)
+    MOV_SAFE b, t1, t3   ; t1 = b, b unchanged
     ZERO result           ; result = 0
     LOOP t1
         DEC t1
-        ADD result, a, t2  ; result += a, a unchanged (t2 temporary)
-        GOTO t1            ; return head to counter for loop check
+        ADD result, a, t2  ; result += a, a unchanged
+        GOTO t1
     END
 ENDM
 
@@ -76,7 +75,6 @@ MACRO NEG(result, tmp)
 ENDM
 
 ; --- CMP: set result = 1 if a == b, else 0 ---
-; Uses two temporaries: t1 (copy of a), t2 (for SUB and NEG).
 MACRO CMP(result, a, b, t1, t2)
     MOV_SAFE a, t1, t2   ; t1 = a
     SUB t1, b, t2        ; t1 = a - b
@@ -84,12 +82,11 @@ MACRO CMP(result, a, b, t1, t2)
     MOV t1, result       ; result = t1, destroy t1
 ENDM
 
-; --- SWAP: exchange values of a and b ---
+; --- SWAP: exchange values of a and b (needs two temps: t1, t2) ---
 MACRO SWAP(a, b, t1, t2)
-    MOV_SAFE a, t1, t2   ; tmp = a
-    ZERO a
-    MOV b, a     ; a = b
-    MOV_SAFE t1, b, t2  ; b = old a
+    MOV_SAFE a, t1, t2   ; t1 = a
+    MOV b, a             ; a = b (destroys b)
+    MOV_SAFE t1, b, t2   ; b = old a
 ENDM
 
 ; --- ISEQ: dest = (a == b) ? 1 : 0 ---
@@ -99,3 +96,11 @@ MACRO ISEQ(dest, a, b, t1, t2)
     NEG t1, t2           ; t1 = 1 if a == b else 0
     MOV_SAFE t1, dest, t2 ; dest = result
 ENDM
+
+; --- BITNOT: result = 255 - x (bitwise NOT) ---
+MACRO BITNOT(x, result, tmp)
+    ZERO result
+    INC result 255
+    SUB result, x, tmp
+ENDM
+

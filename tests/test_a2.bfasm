@@ -1,0 +1,3 @@
+INCLUDE "lib/logicbyte.bfasm"
+VAR a
+ZERO a

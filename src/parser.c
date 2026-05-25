@@ -307,6 +307,8 @@ static int process_expanded_line(char *trimmed, AST *ast, int line_num) {
             arg_count++;
             tok = strtok(NULL, ",");
         }
+       // fprintf(stderr, "DEBUG: macro '%s' called with %d args, expected %d\n",
+        //macro->name, arg_count, macro->param_count);
         if (arg_count != macro->param_count) {
             fprintf(stderr, "Error line %d: macro '%s' expects %d arguments, got %d\n",
                     line_num, macro->name, macro->param_count, arg_count);

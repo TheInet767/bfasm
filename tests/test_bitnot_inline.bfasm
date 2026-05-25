@@ -1,0 +1,12 @@
+MACRO BITNOT(x, result, tmp)
+    ZERO result
+    INC result 255
+    SUB result, x, tmp
+ENDM
+
+VAR a, result, t1
+
+ZERO a
+BITNOT a, result, t1
+GOTO result
+OUTPUT          ; ожидаем 0xFF

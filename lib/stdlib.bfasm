@@ -39,6 +39,7 @@ MACRO MOV_SAFE(src, dst, tmp)
         INC tmp
         GOTO src
     END
+    GOTO tmp
     LOOP tmp
         DEC tmp
         INC src
@@ -81,4 +82,20 @@ MACRO CMP(result, a, b, t1, t2)
     SUB t1, b, t2        ; t1 = a - b
     NEG t1, t2           ; t1 = 1 if a == b else 0
     MOV t1, result       ; result = t1, destroy t1
+ENDM
+
+; --- SWAP: exchange values of a and b ---
+MACRO SWAP(a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; tmp = a
+    ZERO a
+    MOV b, a     ; a = b
+    MOV_SAFE t1, b, t2  ; b = old a
+ENDM
+
+; --- ISEQ: dest = (a == b) ? 1 : 0 ---
+MACRO ISEQ(dest, a, b, t1, t2)
+    MOV_SAFE a, t1, t2   ; t1 = a
+    SUB t1, b, t2        ; t1 = a - b
+    NEG t1, t2           ; t1 = 1 if a == b else 0
+    MOV_SAFE t1, dest, t2 ; dest = result
 ENDM

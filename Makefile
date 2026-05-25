@@ -42,3 +42,6 @@ test: $(OUT) $(BFRUN)
 	@./$(OUT) tests/lib/test_neg.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
 	@echo "=== Test CMP equal (5==5 -> 1) ==="
 	@./$(OUT) tests/lib/test_cmp.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+		@echo "=== Test SWAP and ISEQ ==="
+	@./$(OUT) tests/lib/test_swap_iseq.bfasm > /tmp/_bf.bf && $(BFRUN) /tmp/_bf.bf | xxd
+	@rm -f /tmp/_bf.bf

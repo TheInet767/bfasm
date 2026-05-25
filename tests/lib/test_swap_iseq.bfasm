@@ -1,0 +1,29 @@
+INCLUDE "lib/stdlib.bfasm"
+
+VAR a
+VAR b
+VAR t1
+VAR t2
+VAR dest
+VAR tt1
+VAR tt2
+
+; Test SWAP
+ZERO a
+ZERO b
+INC a 65       ; 'A'
+INC b 66       ; 'B'
+SWAP a, b, t1, t2
+GOTO a
+OUTPUT          ; ожидаем 'B'
+GOTO b
+OUTPUT          ; ожидаем 'A'
+
+; Test ISEQ (5 == 5 -> 1)
+ZERO a
+ZERO b
+INC a 5
+INC b 5
+ISEQ dest, a, b, tt1, tt2
+GOTO dest
+OUTPUT          ; ожидаем байт 0x01

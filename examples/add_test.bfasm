@@ -1,0 +1,13 @@
+; add_test.bfasm – 7 + 15 = 22
+INCLUDE "lib/stdlib.bfasm"
+
+ORG 0
+VAR a
+VAR b
+VAR tmp
+
+INC a 7
+INC b 15
+ADD a, b, tmp          ; a = a + b
+GOTO a
+OUTPUT                 ; символ с кодом 22

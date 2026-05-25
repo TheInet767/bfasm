@@ -1,0 +1,52 @@
+; even_test.bfasm – проверяем число на чётность (7 → 0, 8 → 1)
+INCLUDE "lib/stdlib.bfasm"
+
+ORG 0
+VAR num
+VAR res
+VAR one
+VAR tmp1
+VAR tmp2
+VAR tmp3
+VAR tmp4
+VAR tmp5
+
+; ------------- макрос IS_EVEN -------------
+MACRO IS_EVEN(dst, num, one, t1, t2, t3, t4, t5)
+    MOV_SAFE num, t1, t2
+    INC dst 1
+    LOOP t1
+        ISEQ t2, t1, one, t3, t4
+        ZERO t3
+        INC t3 1
+        SUB t3, t2, t4
+        MOV_SAFE t3, t4, t5
+        NEG t3, t5
+        MOV_SAFE t4, t5, tmp5
+        LOOP t3
+            ZERO dst
+            ZERO t1
+        END
+        LOOP t5
+            DEC t1
+            DEC t1
+        END
+    END
+ENDM
+
+; ------------- программа -------------
+    INC one 1
+
+    ; тест 1: 7 → нечётное (0)
+    INC num 7
+    IS_EVEN res, num, one, tmp1, tmp2, tmp3, tmp4, tmp5
+    INC res 48            ; '0'
+    GOTO res
+    OUTPUT
+
+    ; тест 2: 8 → чётное (1)
+    INC num 1             ; 7+1=8
+    IS_EVEN res, num, one, tmp1, tmp2, tmp3, tmp4, tmp5
+    INC res 48
+    GOTO res
+    OUTPUT

@@ -6,9 +6,6 @@
 // '>' / '<' sequences.
 //
 // === Current Limitations & Future Improvements ===
-// [LIMIT]   MOV destroys source cell (standard BF idiom [-dest+src]).
-//           A non-destructive copy with a temporary cell is not yet implemented.
-// [LIMIT]   LOOP/END pairing is not verified – codegen assumes correct nesting.
 // [TODO]    Optimize consecutive head movements (e.g., > followed by <).
 // [TODO]    Output to file or string buffer instead of stdout.
 // [TODO]    Support for BF++ target (extended instructions).
@@ -17,7 +14,6 @@
 #include <string.h>
 #include "codegen.h"
 
-// Find tape index of a named variable. Returns -1 if not found.
 static int var_index(const VarTable *vt, const char *name) {
     for (int i = 0; i < vt->count; i++) {
         if (strcmp(vt->names[i], name) == 0) return i + vt->org_offset;
@@ -25,7 +21,6 @@ static int var_index(const VarTable *vt, const char *name) {
     return -1;
 }
 
-// Emit head movement from current position to target cell.
 static void move_head(int *pos, int target) {
     int delta = target - *pos;
     if (delta > 0) {
@@ -37,23 +32,16 @@ static void move_head(int *pos, int target) {
 }
 
 void generate_bf(const AST *ast) {
-    int head_pos = 0;   // virtual head position
+    int head_pos = 0;
 
     for (int i = 0; i < ast->inst_count; i++) {
         Instruction inst = ast->instructions[i];
 
         switch (inst.type) {
-            case INST_RAWBF:
-                printf("%s", inst.raw_bf);
-                head_pos = 0;   // сбрасываем позицию головки
-                break;
             case INST_INC:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name);
-                        return;
-                    }
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
                     move_head(&head_pos, idx);
                 }
                 for (int j = 0; j < inst.operand; j++) putchar('+');
@@ -62,10 +50,7 @@ void generate_bf(const AST *ast) {
             case INST_DEC:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name);
-                        return;
-                    }
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
                     move_head(&head_pos, idx);
                 }
                 for (int j = 0; j < inst.operand; j++) putchar('-');
@@ -74,10 +59,7 @@ void generate_bf(const AST *ast) {
             case INST_ZERO:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name);
-                        return;
-                    }
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
                     move_head(&head_pos, idx);
                 }
                 printf("[-]");
@@ -94,10 +76,7 @@ void generate_bf(const AST *ast) {
             case INST_LOOP_START:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name);
-                        return;
-                    }
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
                     move_head(&head_pos, idx);
                 }
                 putchar('[');
@@ -116,25 +95,20 @@ void generate_bf(const AST *ast) {
                                 inst.src_var, inst.dst_var);
                         return;
                     }
-                    // Standard destructive copy: [-dest+src]
-                    // We need to move to src, then loop
                     move_head(&head_pos, src_idx);
-                    putchar('[');   // start loop
-                    putchar('-');   // dec src
+                    putchar('[');
+                    putchar('-');
                     move_head(&head_pos, dst_idx);
-                    putchar('+');   // inc dst
+                    putchar('+');
                     move_head(&head_pos, src_idx);
-                    putchar(']');   // end loop
+                    putchar(']');
                 }
                 break;
 
             case INST_GOTO:
                 if (inst.var_name[0] != '\0') {
                     int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name);
-                        return;
-                    }
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
                     move_head(&head_pos, idx);
                 }
                 break;
@@ -147,6 +121,31 @@ void generate_bf(const AST *ast) {
             case INST_LEFT:
                 head_pos -= inst.operand;
                 for (int j = 0; j < inst.operand; j++) putchar('<');
+                break;
+
+            case INST_RAWBF:
+                printf("%s", inst.raw_bf);
+                head_pos = 0;
+                break;
+
+            case INST_MOVEBY:
+                if (inst.var_name[0] != '\0') {
+                    int idx = var_index(&ast->vars, inst.var_name);
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
+                    move_head(&head_pos, idx);
+                }
+                printf("[>]");
+                head_pos = 0;
+                break;
+
+            case INST_MOVEBY_LEFT:
+                if (inst.var_name[0] != '\0') {
+                    int idx = var_index(&ast->vars, inst.var_name);
+                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
+                    move_head(&head_pos, idx);
+                }
+                printf("[<]");
+                head_pos = 0;
                 break;
 
             default:

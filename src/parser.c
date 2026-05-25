@@ -36,12 +36,10 @@ static char* trim(char *str) {
 
 // ---- dynamic memory helpers ----
 
-// Add a variable to the table, expanding if needed.
 static int add_variable(AST *ast, const char *name) {
     VarTable *vt = &ast->vars;
-    // Check for duplicate
     for (int i = 0; i < vt->count; i++) {
-        if (strcmp(vt->names[i], name) == 0) return 0; // already exists
+        if (strcmp(vt->names[i], name) == 0) return 0;
     }
     if (vt->count >= vt->capacity) {
         int new_cap = vt->capacity * 2;
@@ -59,7 +57,6 @@ static int add_variable(AST *ast, const char *name) {
     return 0;
 }
 
-// Add an instruction, expanding if needed.
 static int add_instruction(AST *ast, const Instruction *inst) {
     if (ast->inst_count >= ast->inst_capacity) {
         int new_cap = ast->inst_capacity * 2;
@@ -75,7 +72,6 @@ static int add_instruction(AST *ast, const Instruction *inst) {
     return 0;
 }
 
-// Add a macro, expanding if needed.
 static int add_macro(AST *ast, const Macro *macro) {
     if (ast->macro_count >= ast->macro_capacity) {
         int new_cap = ast->macro_capacity * 2;
@@ -106,7 +102,6 @@ static int process_expanded_line(char *trimmed, AST *ast, int line_num);
 
 // ---- macro support ----
 
-// Find macro by name and optional alias.
 static Macro* find_macro(AST *ast, const char *name, const char *alias) {
     for (int i = 0; i < ast->macro_count; i++) {
         if (strcmp(ast->macros[i].name, name) == 0) {
@@ -120,7 +115,6 @@ static Macro* find_macro(AST *ast, const char *name, const char *alias) {
     return NULL;
 }
 
-// Substitute macro parameters with call arguments in a single line.
 static char* substitute_line(const char *line, const Macro *m, char *args[]) {
     static char result[256];
     result[0] = '\0';
@@ -340,7 +334,6 @@ AST parse_file(const char *filename) {
     AST ast;
     memset(&ast, 0, sizeof(ast));
 
-    // Initialize variable table
     ast.vars.capacity = INIT_VARS_CAPACITY;
     ast.vars.names = malloc(ast.vars.capacity * sizeof(char[MAX_NAME]));
     if (!ast.vars.names) {
@@ -349,7 +342,6 @@ AST parse_file(const char *filename) {
         return ast;
     }
 
-    // Initialize instructions array
     ast.inst_capacity = INIT_INSTR_CAPACITY;
     ast.instructions = malloc(ast.inst_capacity * sizeof(Instruction));
     if (!ast.instructions) {
@@ -359,7 +351,6 @@ AST parse_file(const char *filename) {
         return ast;
     }
 
-    // Initialize macros array
     ast.macro_capacity = INIT_MACROS_CAPACITY;
     ast.macros = malloc(ast.macro_capacity * sizeof(Macro));
     if (!ast.macros) {
@@ -492,7 +483,6 @@ AST parse_file(const char *filename) {
                 fprintf(stderr, "Error line %d: invalid RESERVE value\n", line_num);
                 ast.inst_count = -1; break;
             }
-            // advance variable count by n (they remain unnamed)
             for (int i = 0; i < n; i++) {
                 if (add_variable(&ast, "") != 0) {
                     ast.inst_count = -1; break;
@@ -530,7 +520,7 @@ AST parse_file(const char *filename) {
             memset(&m, 0, sizeof(m));
             strncpy(m.name, macro_name, MAX_MACRO_NAME-1);
             m.name[MAX_MACRO_NAME-1] = '\0';
-            m.lib_alias[0] = '\0';  // no alias for inline macros
+            m.lib_alias[0] = '\0';
 
             char *params_str = lparen + 1;
             char *rparen = strchr(params_str, ')');
@@ -581,7 +571,6 @@ AST parse_file(const char *filename) {
         }
 
         // --- Raw BF and other directives ---
-        // (INCLUDEBF, BF, BEGINBF – keep your existing code here, just use add_instruction instead of manual bound check)
         if (strncmp(trimmed, "BF ", 3) == 0) {
             char *start = trim(trimmed + 3);
             char raw[RAWBF_MAX] = {0};
@@ -730,7 +719,7 @@ AST parse_file(const char *filename) {
     return ast;
 }
 
-// ---- parse_line: unchanged ----
+// ---- parse_line: include MOVEBY and MOVEBY_LEFT ----
 static int parse_line(char *trimmed, AST *ast, int line_num) {
     Instruction inst;
     memset(&inst, 0, sizeof(inst));
@@ -877,6 +866,28 @@ static int parse_line(char *trimmed, AST *ast, int line_num) {
         inst.type = INST_LEFT;
         char *rest = trim(trimmed + 4);
         PARSE_NUM_OR_DEFAULT(rest, 1);
+    }
+    // --- MOVEBY var ---
+    else if (strncmp(trimmed, "MOVEBY ", 7) == 0) {
+        inst.type = INST_MOVEBY;
+        char *name = trim(trimmed + 7);
+        if (strlen(name) == 0) {
+            fprintf(stderr, "Error line %d: MOVEBY requires a variable\n", line_num);
+            return -1;
+        }
+        strncpy(inst.var_name, name, MAX_NAME-1);
+        inst.var_name[MAX_NAME-1] = '\0';
+    }
+    // --- MOVEBY_LEFT var ---
+    else if (strncmp(trimmed, "MOVEBY_LEFT ", 12) == 0) {
+        inst.type = INST_MOVEBY_LEFT;
+        char *name = trim(trimmed + 12);
+        if (strlen(name) == 0) {
+            fprintf(stderr, "Error line %d: MOVEBY_LEFT requires a variable\n", line_num);
+            return -1;
+        }
+        strncpy(inst.var_name, name, MAX_NAME-1);
+        inst.var_name[MAX_NAME-1] = '\0';
     }
     else {
         fprintf(stderr, "Error line %d: unknown instruction '%s'\n", line_num, trimmed);

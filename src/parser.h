@@ -29,7 +29,9 @@ typedef enum {
     INST_GOTO,
     INST_RIGHT,
     INST_LEFT,
-    INST_RAWBF
+    INST_RAWBF,
+    INST_MOVEBY,       // MOVEBY var – move right by var cells, destroys var
+    INST_MOVEBY_LEFT   // MOVEBY_LEFT var – move left by var cells, destroys var
 } InstType;
 
 #define RAWBF_MAX 1024

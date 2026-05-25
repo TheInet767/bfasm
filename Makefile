@@ -1,5 +1,5 @@
 CFLAGS = -Wall -Wextra -std=c99 -pedantic
-SRC = src/main.c src/parser.c src/codegen.c
+SRC = src/main.c src/parser.c src/codegen2.c
 OUT = bfasm
 BFRUN = tools/bfrun
 

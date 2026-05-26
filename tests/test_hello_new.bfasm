@@ -1,0 +1,5 @@
+; @expect "H"
+VAR a
+INC a 72
+GOTO a
+OUTPUT

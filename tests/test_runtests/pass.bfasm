@@ -1,0 +1,5 @@
+; @desc Тест должен пройти (вывод "H")
+; @expect "H"
+VAR a
+INC a 72
+OUTPUT

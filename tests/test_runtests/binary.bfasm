@@ -1,0 +1,5 @@
+; @desc Бинарное ожидание (0x48 = 'H')
+; @expect 0x48
+VAR a
+INC a 72
+OUTPUT

@@ -1,0 +1,14 @@
+; @desc Удвоение введённого символа (несколько раундов)
+; @stdin "A"
+; @expect 0x82         ; 'A' * 2 = 130
+; @stdin "B"
+; @expect 0x84         ; 'B' * 2 = 132
+; @stdin "0"
+; @expect 0x60         ; '0' * 2 = 96
+
+VAR a
+INPUT
+INC a
+INC a
+GOTO a
+OUTPUT

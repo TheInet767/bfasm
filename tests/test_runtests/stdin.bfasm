@@ -1,0 +1,8 @@
+; @desc Ввод символа и вывод с инкрементом
+; @stdin "A"
+; @expect "B"
+VAR a
+INPUT
+INC a
+GOTO a
+OUTPUT

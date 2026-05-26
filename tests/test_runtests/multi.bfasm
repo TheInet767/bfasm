@@ -1,0 +1,10 @@
+; @desc Множественные раунды (инкремент символа)
+; @stdin "A"
+; @expect "B"
+; @stdin "Z"
+; @expect "["
+VAR a
+INPUT
+INC a
+GOTO a
+OUTPUT

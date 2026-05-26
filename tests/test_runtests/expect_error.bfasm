@@ -1,0 +1,4 @@
+; @desc Ожидаемая ошибка компиляции (неизвестная переменная)
+; @expect_error unknown instruction 'INC b'
+VAR a
+INC b

@@ -1,15 +1,5 @@
-// codegen.c
-// Brainfuck Assembler (bfasm) – code generator implementation
-//
-// Walks the AST and emits pure Brainfuck instructions while tracking
-// the virtual head position so that variable accesses generate minimal
-// '>' / '<' sequences.
-//
-// === Current Limitations & Future Improvements ===
-// [TODO]    Optimize consecutive head movements (e.g., > followed by <).
-// [TODO]    Output to file or string buffer instead of stdout.
-// [TODO]    Support for BF++ target (extended instructions).
-
+// codegen2.c
+// Brainfuck Assembler (bfasm) – table‑driven code generator
 #include <stdio.h>
 #include <string.h>
 #include "codegen.h"
@@ -31,195 +21,181 @@ static void move_head(int *pos, int target) {
     *pos = target;
 }
 
+// ---------- генераторы для каждой инструкции ----------
+
+static void gen_inc(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    for (int j = 0; j < inst->operand; j++) putchar('+');
+}
+
+static void gen_dec(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    for (int j = 0; j < inst->operand; j++) putchar('-');
+}
+
+static void gen_zero(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    printf("[-]");
+}
+
+static void gen_input(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)inst; (void)ast;
+    putchar(',');
+}
+
+static void gen_output(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)inst; (void)ast;
+    putchar('.');
+}
+
+static void gen_loop_start(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    putchar('[');
+}
+
+static void gen_loop_end(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)inst; (void)ast;
+    putchar(']');
+}
+
+static void gen_mov(const Instruction *inst, const AST *ast, int *head_pos) {
+    int src = var_index(&ast->vars, inst->src_var);
+    int dst = var_index(&ast->vars, inst->dst_var);
+    if (src < 0 || dst < 0) return;
+    move_head(head_pos, src);
+    putchar('['); putchar('-');
+    move_head(head_pos, dst);
+    putchar('+');
+    move_head(head_pos, src);
+    putchar(']');
+}
+
+static void gen_goto(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+}
+
+static void gen_right(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)ast;
+    *head_pos += inst->operand;
+    for (int j = 0; j < inst->operand; j++) putchar('>');
+}
+
+static void gen_left(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)ast;
+    *head_pos -= inst->operand;
+    for (int j = 0; j < inst->operand; j++) putchar('<');
+}
+
+static void gen_rawbf(const Instruction *inst, const AST *ast, int *head_pos) {
+    (void)ast;
+    printf("%s", inst->raw_bf);
+    *head_pos = 0;
+}
+
+static void gen_moveby(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    printf("[>]");
+    *head_pos = 0;
+}
+
+static void gen_moveby_left(const Instruction *inst, const AST *ast, int *head_pos) {
+    if (inst->var_name[0]) {
+        int idx = var_index(&ast->vars, inst->var_name);
+        if (idx < 0) return;
+        move_head(head_pos, idx);
+    }
+    printf("[<]");
+    *head_pos = 0;
+}
+
+static void gen_cmp_ge(const Instruction *inst, const AST *ast, int *head_pos) {
+    int res = var_index(&ast->vars, inst->var_name);
+    int idx_a = var_index(&ast->vars, inst->src_var);
+    int idx_b = var_index(&ast->vars, inst->dst_var);
+    int idx_t1 = var_index(&ast->vars, inst->tmp1);
+    if (res < 0 || idx_a < 0 || idx_b < 0 || idx_t1 < 0) return;
+
+    move_head(head_pos, res);  printf("[-]+");
+    move_head(head_pos, idx_a); printf("[-");
+    move_head(head_pos, idx_b); printf("[-");
+    move_head(head_pos, idx_t1); printf("+");
+    move_head(head_pos, idx_b); printf("]");
+    move_head(head_pos, idx_t1); printf("[-");
+    move_head(head_pos, res); printf("[-]");
+    move_head(head_pos, idx_t1); printf("]");
+    move_head(head_pos, idx_a); printf("]");
+    move_head(head_pos, idx_b); printf("[-]");
+    move_head(head_pos, res);
+}
+
+// ---------- таблица генераторов ----------
+typedef void (*GenFunc)(const Instruction*, const AST*, int*);
+
+typedef struct {
+    InstType type;
+    GenFunc  func;
+} GenEntry;
+
+static const GenEntry gen_table[] = {
+    { INST_INC,         gen_inc          },
+    { INST_DEC,         gen_dec          },
+    { INST_ZERO,        gen_zero         },
+    { INST_INPUT,       gen_input        },
+    { INST_OUTPUT,      gen_output       },
+    { INST_LOOP_START,  gen_loop_start   },
+    { INST_LOOP_END,    gen_loop_end     },
+    { INST_MOV,         gen_mov          },
+    { INST_GOTO,        gen_goto         },
+    { INST_RIGHT,       gen_right        },
+    { INST_LEFT,        gen_left         },
+    { INST_RAWBF,       gen_rawbf        },
+    { INST_MOVEBY,      gen_moveby       },
+    { INST_MOVEBY_LEFT, gen_moveby_left  },
+    { INST_CMP_GE,      gen_cmp_ge       },
+};
+static const int gen_table_size = sizeof(gen_table) / sizeof(gen_table[0]);
+
+// ---------- главная функция ----------
 void generate_bf(const AST *ast) {
     int head_pos = 0;
-
     for (int i = 0; i < ast->inst_count; i++) {
-        Instruction inst = ast->instructions[i];
-
-        switch (inst.type) {
-            case INST_INC:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                for (int j = 0; j < inst.operand; j++) putchar('+');
+        const Instruction *inst = &ast->instructions[i];
+        GenFunc func = NULL;
+        for (int j = 0; j < gen_table_size; j++) {
+            if (gen_table[j].type == inst->type) {
+                func = gen_table[j].func;
                 break;
-
-            case INST_DEC:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                for (int j = 0; j < inst.operand; j++) putchar('-');
-                break;
-
-            case INST_ZERO:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                printf("[-]");
-                break;
-
-            case INST_INPUT:
-                putchar(',');
-                break;
-
-            case INST_OUTPUT:
-                putchar('.');
-                break;
-
-            case INST_LOOP_START:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                putchar('[');
-                break;
-
-            case INST_LOOP_END:
-                putchar(']');
-                break;
-
-            case INST_MOV:
-                {
-                    int src_idx = var_index(&ast->vars, inst.src_var);
-                    int dst_idx = var_index(&ast->vars, inst.dst_var);
-                    if (src_idx < 0 || dst_idx < 0) {
-                        fprintf(stderr, "Internal error: undefined variable in MOV '%s', '%s'\n",
-                                inst.src_var, inst.dst_var);
-                        return;
-                    }
-                    move_head(&head_pos, src_idx);
-                    putchar('[');
-                    putchar('-');
-                    move_head(&head_pos, dst_idx);
-                    putchar('+');
-                    move_head(&head_pos, src_idx);
-                    putchar(']');
-                }
-                break;
-
-            case INST_GOTO:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                break;
-
-            case INST_RIGHT:
-                head_pos += inst.operand;
-                for (int j = 0; j < inst.operand; j++) putchar('>');
-                break;
-
-            case INST_LEFT:
-                head_pos -= inst.operand;
-                for (int j = 0; j < inst.operand; j++) putchar('<');
-                break;
-
-            case INST_RAWBF:
-                printf("%s", inst.raw_bf);
-                head_pos = 0;
-                break;
-
-            case INST_MOVEBY:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                printf("[>]");
-                head_pos = 0;
-                break;
-
-            case INST_MOVEBY_LEFT:
-                if (inst.var_name[0] != '\0') {
-                    int idx = var_index(&ast->vars, inst.var_name);
-                    if (idx < 0) { fprintf(stderr, "Internal error: undefined variable '%s'\n", inst.var_name); return; }
-                    move_head(&head_pos, idx);
-                }
-                printf("[<]");
-                head_pos = 0;
-                break;
-
-                       
-            case INST_CMP_GE: {
-    int res = var_index(&ast->vars, inst.var_name);
-    int idx_a = var_index(&ast->vars, inst.src_var);
-    int idx_b = var_index(&ast->vars, inst.dst_var);
-    int idx_t1 = var_index(&ast->vars, inst.tmp1);
-    int idx_t2 = var_index(&ast->vars, inst.tmp2);
-    if (res < 0 || idx_a < 0 || idx_b < 0 || idx_t1 < 0 || idx_t2 < 0) {
-        fprintf(stderr, "Internal error: undefined variable in CMP_GE\n");
-        return;
-    }
-
-    // result = 1 (предполагаем a >= b)
-    move_head(&head_pos, res);
-    printf("[-]+");
-
-    // while (a > 0)
-    move_head(&head_pos, idx_a);
-    printf("[");
-    {
-        // if (b > 0) b--;
-        // Копируем b в t1 и t2, b обнуляется
-        move_head(&head_pos, idx_b);
-        printf("[-");
-        move_head(&head_pos, idx_t1);
-        printf("+");
-        move_head(&head_pos, idx_t2);
-        printf("+");
-        move_head(&head_pos, idx_b);
-        printf("]");
-
-        // Восстанавливаем b из t2 (t2 = 0)
-        move_head(&head_pos, idx_t2);
-        printf("[-");
-        move_head(&head_pos, idx_b);
-        printf("+");
-        move_head(&head_pos, idx_t2);
-        printf("]");
-
-        // Если t1 (старое b) было > 0, то b-- и t1 = 0
-        move_head(&head_pos, idx_t1);
-        printf("[");
-        printf("-");
-        move_head(&head_pos, idx_b);
-        printf("-");
-        move_head(&head_pos, idx_t1);
-        printf("]");
-
-        // a--
-        move_head(&head_pos, idx_a);
-        printf("-");
-    }
-    move_head(&head_pos, idx_a);
-    printf("]");
-
-    // После цикла: если b > 0, значит a < b → result = 0
-    move_head(&head_pos, idx_b);
-    printf("[");
-    move_head(&head_pos, res);
-    printf("[-]");
-    move_head(&head_pos, idx_b);
-    printf("[-]");
-    printf("]");
-
-    // Оставляем головку на result для последующего вывода
-    move_head(&head_pos, res);
-    break;
-}            default:
-                fprintf(stderr, "Internal error: unknown instruction type %d\n", inst.type);
-                return;
+            }
+        }
+        if (func) {
+            func(inst, ast, &head_pos);
+        } else {
+            fprintf(stderr, "Internal error: no generator for instruction type %d\n", inst->type);
         }
     }
-
     putchar('\n');
 }

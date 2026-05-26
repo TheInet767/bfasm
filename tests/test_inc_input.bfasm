@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; test_inc_input.bfasm
 ; Read a character, increment its ASCII code by 1, print it.
 

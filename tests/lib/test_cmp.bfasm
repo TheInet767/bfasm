@@ -1,3 +1,4 @@
+; @expect "FIXME"
 INCLUDE "lib/stdlib.bfasm"
 VAR result
 VAR a

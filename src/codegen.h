@@ -9,6 +9,7 @@
 
 // Generate Brainfuck code from the given AST.
 // The result is printed to stdout.
-void generate_bf(const AST *ast);
+
+int generate_bf(const AST *ast);
 
 #endif

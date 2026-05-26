@@ -62,10 +62,11 @@ parse_metadata() {
       val="${val%%;*}"
       val="${val%"${val##*[![:space:]]}"}"
       META_EXPECT+=("$val")
-      elif [[ "$line" == *@expect_error* ]]; then
-      # извлекаем всё после @expect_error до конца строки или комментария
-      local val
-      val=$(echo "$line" | sed 's/.*@expect_error //; s/[[:space:]]*;.*//')
+    elif [[ "$line" =~ ^\;.*@expect_error\ (.*) ]]; then
+      local val="${BASH_REMATCH[1]}"
+      # убираем внешние кавычки, если есть
+      val="${val%\"}"
+      val="${val#\"}"
       META_EXPECT_ERROR="$val"
     fi
   done < "$f"
@@ -91,10 +92,7 @@ test_file() {
   # компиляция
   local tmp_bf=$(mktemp)
   local tmp_err=$(mktemp)
-  set +e
   "$BFASM" "$f" > "$tmp_bf" 2> "$tmp_err"
-  local comp_status=$?
-  set -e
   local comp_status=$?
 
   if [[ -n "${META_EXPECT_ERROR:-}" ]]; then
@@ -102,6 +100,7 @@ test_file() {
       echo "PASS (expected compile error)"
     else
       echo "FAIL: expected compile error '$META_EXPECT_ERROR' but got:"
+    cat "$tmp_err"
       cat "$tmp_err"
     fi
     rm -f "$tmp_bf" "$tmp_err"

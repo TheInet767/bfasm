@@ -1,3 +1,4 @@
+; @expect "FIXME"
 INCLUDE "lib/math_v2.bfasm" AS v2
 
 VAR a

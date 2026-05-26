@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; test_double.bfasm
 ; Read a character, double its ASCII value, and print it.
 

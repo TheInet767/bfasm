@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; Test for lib/logic.bfasm – logical operations on 0/1
 INCLUDE "lib/stdlib.bfasm"
 INCLUDE "lib/logic.bfasm"

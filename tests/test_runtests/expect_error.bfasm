@@ -1,4 +1,4 @@
-; @desc Ожидаемая ошибка компиляции (неизвестная переменная)
-; @expect_error unknown instruction 'INC b'
+; @desc Ожидаемая ошибка компиляции (MOV требует два аргумента)
+; @expect_error MOV requires two arguments
 VAR a
-INC b
+MOV a

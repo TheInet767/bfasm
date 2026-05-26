@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; test_include.bfasm – test INCLUDE from lib/ and macro call
 
 INCLUDE "lib/stdlib.bfasm"

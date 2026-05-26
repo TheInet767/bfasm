@@ -13,8 +13,12 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Compilation aborted due to errors.\n");
         return 1;
     }
-
-    generate_bf(&ast);
+    
+    if (generate_bf(&ast) != 0) {
+      fprintf(stderr, "Compilation failed during code generation.\n");
+      ast_free(&ast);
+      return 1;
+    }
     ast_free(&ast);
     return 0;
 }

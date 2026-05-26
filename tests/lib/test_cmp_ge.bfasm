@@ -1,3 +1,4 @@
+; @expect "FIXME"
 INCLUDE "lib/stdlib.bfasm"
 INCLUDE "lib/math.bfasm"
 

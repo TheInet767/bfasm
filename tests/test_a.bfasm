@@ -1,2 +1,3 @@
+; @expect "FIXME"
 VAR a
 ZERO a

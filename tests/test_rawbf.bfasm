@@ -1,3 +1,4 @@
+; @expect "FIXME"
 VAR a
 BF "++++++++++"   ; a = 10
 GOTO a

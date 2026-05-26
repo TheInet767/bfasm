@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; test_hello.bfasm
 ; Prints 'H' (ASCII 72)
 VAR a

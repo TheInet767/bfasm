@@ -1,3 +1,4 @@
+; @expect "FIXME"
 MACRO BITNOT(x, result, tmp)
     ZERO result
     INC result 255

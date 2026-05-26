@@ -1,3 +1,4 @@
+; @expect "FIXME"
 VAR a
 VAR result
 BEGINBF

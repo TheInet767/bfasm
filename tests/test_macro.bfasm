@@ -1,3 +1,4 @@
+; @expect "FIXME"
 ; macro that adds src to dst, preserving src (requires a temporary cell)
 MACRO ADD(dst, src, tmp)
     LOOP src

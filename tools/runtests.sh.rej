@@ -1,0 +1,12 @@
+--- tools/runtests.sh
++++ tools/runtests.sh
+@@ -103,7 +103,8 @@
+     if grep -qF "$META_EXPECT_ERROR" "$tmp_err"; then
+       echo "PASS (expected compile error)"
+     else
+-      echo "FAIL: expected compile error '$META_EXPECT_ERROR' but got:"
++      echo "FAIL: expected compile error '$META_EXPECT_ERROR' but got:"
++      cat "$tmp_err"
+     fi
+     rm -f "$tmp_bf" "$tmp_err"
+     return

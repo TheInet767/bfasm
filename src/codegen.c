@@ -180,7 +180,7 @@ static const GenEntry gen_table[] = {
 static const int gen_table_size = sizeof(gen_table) / sizeof(gen_table[0]);
 
 // ---------- главная функция ----------
-void generate_bf(const AST *ast) {
+int generate_bf(const AST *ast) {
     int head_pos = 0;
     for (int i = 0; i < ast->inst_count; i++) {
         const Instruction *inst = &ast->instructions[i];
@@ -195,7 +195,10 @@ void generate_bf(const AST *ast) {
             func(inst, ast, &head_pos);
         } else {
             fprintf(stderr, "Internal error: no generator for instruction type %d\n", inst->type);
+            return 1;
         }
     }
     putchar('\n');
+    return 0;
+
 }
